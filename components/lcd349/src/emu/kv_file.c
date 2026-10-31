@@ -122,18 +122,27 @@ static void load_file(const char *path)
     if (!f) {
         return;
     }
-    uint8_t buf[64 * 1024];
-    size_t len = fread(buf, 1, sizeof buf, f);
+    /* On the heap: 64 KB is more than the main task's whole stack, and this
+     * runs there, in lcd349_init, whenever an earlier boot left a file. */
+    enum { FILE_MAX = 64 * 1024 };
+    uint8_t *buf = malloc(FILE_MAX);
+    if (!buf) {
+        fclose(f);
+        return;
+    }
+    size_t len = fread(buf, 1, FILE_MAX, f);
     fclose(f);
     size_t ml = strlen(FILE_MAGIC);
     if (len < ml + 1 || memcmp(buf, FILE_MAGIC, ml) != 0) {
         fprintf(stderr, "lcd349_emu: ignoring unreadable storage file %s\n", path);
+        free(buf);
         return;
     }
     size_t i = ml;
     char name[LCD349_KV_NAME_MAX + 1] = {0};
     size_t nl = buf[i++];
     if (nl == 0 || nl > LCD349_KV_NAME_MAX || i + nl > len) {
+        free(buf);
         return;
     }
     memcpy(name, buf + i, nl);
@@ -163,6 +172,7 @@ static void load_file(const char *path)
         e->next = n->entries;
         n->entries = e;
     }
+    free(buf);
 }
 
 lcd349_err_t emu_kv_init(void)

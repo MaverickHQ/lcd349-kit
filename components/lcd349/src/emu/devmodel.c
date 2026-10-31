@@ -152,11 +152,18 @@ static void load_state(void)
     if (!f) {
         return;
     }
-    char buf[8192];
-    size_t n = fread(buf, 1, sizeof buf - 1, f);
+    /* On the heap, like kv_file.c's: this runs on the main task in lcd349_init. */
+    enum { STATE_MAX = 8192 };
+    char *buf = malloc(STATE_MAX);
+    if (!buf) {
+        fclose(f);
+        return;
+    }
+    size_t n = fread(buf, 1, STATE_MAX - 1, f);
     fclose(f);
     buf[n] = '\0';
     cJSON *j = cJSON_Parse(buf);
+    free(buf);
     if (!j) {
         fprintf(stderr, "lcd349_emu: ignoring unreadable devstate.json\n");
         return;

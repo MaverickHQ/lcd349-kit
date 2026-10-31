@@ -28,6 +28,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history: the release-candidate test fetches HEAD from the
+          # checkout, and git won't fetch a shallow clone's root.
+          fetch-depth: 0
       # The steps run as root, but the checkout belongs to the runner's user, so
       # git refuses it ("dubious ownership"); go build's VCS stamping and
       # ESP-IDF's version lookup run git in it, and the release-candidate test

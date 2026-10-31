@@ -181,7 +181,19 @@ func (c *cli) waitState(id, state string, limit time.Duration) inst {
 	return c.waitFor(id, "state "+state, limit, func(in inst) bool { return in.State == state })
 }
 
-func alive(pid int) bool { return syscall.Kill(pid, 0) == nil }
+// alive: the process exists and isn't a zombie. An orphan is reaped by PID 1,
+// and in a container whose PID 1 never reaps (GitHub's job containers run
+// tail -f /dev/null) one that exited stays a zombie, which kill(pid, 0) finds.
+func alive(pid int) bool {
+	if syscall.Kill(pid, 0) != nil {
+		return false
+	}
+	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)) // Linux only
+	if i := bytes.LastIndexByte(stat, ')'); err == nil && i >= 0 && i+2 < len(stat) && stat[i+2] == 'Z' {
+		return false
+	}
+	return true
+}
 
 // port opens the instance's serial port as a host tool would.
 func port(t *testing.T, path string) *os.File {

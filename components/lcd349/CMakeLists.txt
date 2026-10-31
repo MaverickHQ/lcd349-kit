@@ -66,3 +66,12 @@ idf_component_register(SRCS ${srcs}
                        PRIV_INCLUDE_DIRS "src/common" ${backend_dir}
                        REQUIRES freertos
                        PRIV_REQUIRES log heap ${backend_requires})
+
+# No function here may put a big buffer on a task's stack (20 KB at most; the
+# control task's 16 KB read buffer has a 32 KB stack). The emulator's tasks are
+# heap memory, so an overflow there corrupts the heap silently on most hosts:
+# a 64 KB storage buffer did, on every second boot, until a CI runner faulted.
+# GCC and clang spell the error form differently.
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    "$<$<C_COMPILER_ID:GNU>:-Werror=frame-larger-than=20480>"
+    "$<$<C_COMPILER_ID:Clang,AppleClang>:-Wframe-larger-than=20480;-Werror=frame-larger-than>")
