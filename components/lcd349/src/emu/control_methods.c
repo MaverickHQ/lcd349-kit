@@ -934,9 +934,17 @@ static rpc_res_t wait_poll(rpc_client_t *c, cJSON **res, rpc_err_t *err)
             return RPC_DONE;
         }
     }
+    /* Idle: nothing drawn for idle_ms, and nothing waiting to be drawn. A label
+     * given new text is drawn only at LVGL's next refresh, so without the second
+     * check a screenshot just after `wait text` could still show the old text. */
     if (op->has_idle && emu_fb_idle_us() >= (uint64_t)op->idle_ms * 1000u) {
-        *res = wait_result(op, true, "idle");
-        return RPC_DONE;
+        lcd349_ui_lock();
+        bool pending = !emu_display_dark() && emu_ui_draw_pending();
+        lcd349_ui_unlock();
+        if (!pending) {
+            *res = wait_result(op, true, "idle");
+            return RPC_DONE;
+        }
     }
     if (t < op->deadline) {
         return RPC_PENDING;

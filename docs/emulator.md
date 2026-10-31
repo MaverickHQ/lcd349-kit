@@ -63,7 +63,7 @@ printf '{"jsonrpc":"2.0","id":1,"method":"state.get"}\n' | nc -U "$TMPDIR/lcd349
 | `ui.tree`, `ui.lint` | the LVGL object tree; the design-rule check |
 | `input.press` | `button` (`boot`, `pwr`) or `chord`, with `ms`, or `state` `down`/`up` for a hold |
 | `input.touch` | `tap`, `long_press`, `swipe` or `points`, delivered as samples at the touch period |
-| `wait` | for a log line (`log`, an extended regular expression), `text` on screen, or `idle_ms` without a frame |
+| `wait` | for a log line (`log`, an extended regular expression), `text` on screen, or `idle_ms` without a frame, with none waiting to be drawn |
 | `audio.events` | the tones played since a sequence number |
 | `record.start`, `record.stop` | PNG frames of everything drawn, for `max_s` seconds (default 10, at most 60) or 600 frames, whichever comes first |
 

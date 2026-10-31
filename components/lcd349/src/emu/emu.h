@@ -205,6 +205,9 @@ uint8_t *emu_panel_to_rgb(const uint8_t *panel, bool raw, int scale, int *w, int
 struct cJSON;
 struct cJSON *emu_ui_tree(const char *path, int depth, int *count, bool *truncated);
 struct cJSON *emu_ui_lint(int *errors, int *warnings);
+/* Whether LVGL has invalidated areas it hasn't drawn yet: a widget that just
+ * changed is drawn only at the next refresh. Call with the UI lock held. */
+bool emu_ui_draw_pending(void);
 /* True if visible text on the active screen (or top layer) contains needle. */
 bool emu_ui_find_text(const char *needle, char *found, size_t found_len);
 

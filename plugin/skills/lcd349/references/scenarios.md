@@ -26,7 +26,7 @@ steps:
 
 | Step | Parameters | Passes when |
 |---|---|---|
-| `wait` | `log` (extended regular expression), `text`, `idle_ms`, `timeout_ms` (default 5000) | the line is logged, the text is on screen, or no frame came for `idle_ms` |
+| `wait` | `log` (extended regular expression), `text`, `idle_ms`, `timeout_ms` (default 5000) | the line is logged, the text is on screen, or no frame came for `idle_ms` and none is waiting to be drawn |
 | `shot` | `golden` (relative to the scenario file), `tolerance_px` (default 0), `raw`, `scale`; or just the path | the screenshot matches the golden |
 | `lint` | `max_errors` (default 0), `max_warnings` (default: any); or empty | the screen is within the limits |
 | `touch` | one of `tap: [x, y]`, `long_press: [x, y]`, `swipe: {from: [x, y], to: [x, y]}`, `points: [{x, y, down}]`; `ms` | the touch was delivered (it isn't while the display is dark) |

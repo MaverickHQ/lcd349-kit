@@ -374,6 +374,12 @@ static void find_cb(lv_obj_t *o, void *ctx)
     }
 }
 
+bool emu_ui_draw_pending(void)
+{
+    lv_display_t *d = lv_display_get_default();
+    return d && d->inv_p > 0;
+}
+
 bool emu_ui_find_text(const char *needle, char *found, size_t found_len)
 {
     if (!lv_display_get_default()) {

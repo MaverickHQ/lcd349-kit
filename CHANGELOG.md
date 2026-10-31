@@ -27,6 +27,7 @@ The first published version. The repository is public at `github.com/MaverickHQ/
 ### Fixed
 - **The emulator overflowed its main task's stack on every boot after the first.** Loading storage put a 64 KB buffer on the stack (`kv_file.c`), and loading the device model 8 KB (`devmodel.c`). On a Mac the overflow silently overwrote heap memory; on GitHub's Linux runners the instance crashed. Both buffers are on the heap now.
 - **`lcd349 scenario` could lose a request while the product powered off.** A `wait` that reached the exiting product came back empty, and a PWR press the product never read counted as done, so the board stayed off. A `wait` is now asked again once the runner follows the product, and a request it never read is sent again.
+- **A `wait` for `idle_ms` could count the screen as settled while a change was still waiting to be drawn**, so a screenshot just after a label changed could show the old text. It now also waits until nothing is waiting to be drawn.
 - `lcd349 doctor` finds libbsd's headers in Debian and Ubuntu's multiarch folder (`/usr/include/<triplet>/bsd/`), where Ubuntu 24.04 puts them.
 - `examples/inputs`' scenarios, and the CLI's and MCP server's tests, wait for the Wi-Fi status text on the screen, not only in the log: the status line redraws once a second, so a screenshot just after the log line could still show "wifi scanning". The `inputs` golden is re-recorded.
 - `test_apps/build_check` uses the large app partition, as the examples and the template do: with Wi-Fi, the kit doesn't fit the default 1 MB.
