@@ -1,0 +1,75 @@
+#!/bin/sh
+# lcd349-launch: run the lcd349 binary that matches this plugin's version.
+#
+# 1. If `lcd349` on PATH reports exactly this version (`lcd349 version`
+#    prints "lcd349 <version>"), run it.
+# 2. Otherwise use the release binary for this OS and CPU from
+#    $CLAUDE_PLUGIN_DATA/bin, downloading it first if it is missing.
+# 3. Never run a binary whose SHA-256 differs from checksums.txt, which ships
+#    inside the plugin.
+#
+# stdout belongs to the MCP server: this script writes only to stderr.
+# LCD349_RELEASE_BASE overrides the download location (tests only).
+set -eu
+
+VERSION="0.1.0-dev"
+DEFAULT_BASE="https://github.com/MaverickHQ/lcd349-kit/releases/download/v$VERSION"
+
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+die() {
+	echo "lcd349-launch: $*" >&2
+	exit 1
+}
+
+if command -v lcd349 >/dev/null 2>&1; then
+	if [ "$(lcd349 version 2>/dev/null || true)" = "lcd349 $VERSION" ]; then
+		exec lcd349 "$@"
+	fi
+fi
+
+case $(uname -s) in
+Darwin) os=darwin ;;
+Linux) os=linux ;;
+*) die "unsupported OS $(uname -s); install lcd349 $VERSION on PATH" ;;
+esac
+case $(uname -m) in
+x86_64 | amd64) arch=amd64 ;;
+arm64 | aarch64) arch=arm64 ;;
+*) die "unsupported CPU $(uname -m); install lcd349 $VERSION on PATH" ;;
+esac
+
+asset="lcd349_${VERSION}_${os}_${arch}"
+[ -n "${CLAUDE_PLUGIN_DATA:-}" ] || die "CLAUDE_PLUGIN_DATA is not set; install lcd349 $VERSION on PATH"
+bin="$CLAUDE_PLUGIN_DATA/bin/$asset"
+
+want=$(awk -v a="$asset" '$2 == a { print $1 }' "$here/checksums.txt")
+[ -n "$want" ] || die "no checksum for $asset in $here/checksums.txt (a development plugin has none: install lcd349 $VERSION on PATH)"
+
+sha256() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | awk '{ print $1 }'
+	else
+		shasum -a 256 "$1" | awk '{ print $1 }'
+	fi
+}
+
+if [ ! -f "$bin" ] || [ "$(sha256 "$bin")" != "$want" ]; then
+	mkdir -p "$CLAUDE_PLUGIN_DATA/bin"
+	tmp="$bin.part.$$"
+	trap 'rm -f "$tmp"' EXIT
+	if [ -n "${LCD349_RELEASE_BASE:-}" ]; then
+		curl -fsSL --proto '=https,http,file' -o "$tmp" "$LCD349_RELEASE_BASE/$asset" ||
+			die "download from $LCD349_RELEASE_BASE/$asset failed"
+	else
+		curl -fsSL --proto '=https' --tlsv1.2 -o "$tmp" "$DEFAULT_BASE/$asset" ||
+			die "download from $DEFAULT_BASE/$asset failed"
+	fi
+	got=$(sha256 "$tmp")
+	[ "$got" = "$want" ] || die "checksum mismatch for $asset: expected $want, got $got; refusing to run it"
+	chmod 755 "$tmp"
+	mv -f "$tmp" "$bin"
+	trap - EXIT
+fi
+
+exec "$bin" "$@"

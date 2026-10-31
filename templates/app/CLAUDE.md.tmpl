@@ -1,0 +1,23 @@
+# {{.Name}}
+
+An ESP-IDF product for the Waveshare ESP32-S3-Touch-LCD-3.49 (640×172 touch bar, two buttons, speaker, battery), built on lcd349-kit {{.KitVersion}}.
+
+Use the **lcd349** skill and its MCP tools for any UI or device work in this project: they know the board's limits and design rules, and can build, run, screenshot, lint and drive the emulator. Install them with `/plugin install lcd349 --marketplace MaverickHQ/lcd349-kit` if they aren't there.
+
+## Commands
+
+```
+lcd349 build                                    # the emulator build, in build-emu/
+lcd349 run [--headless]                         # build and start it; a window at physical size unless --headless
+lcd349 shot | tree | lint | press boot | touch tap X Y | wait --log RE | logs | state
+lcd349 scenario tests/*.scenario.yaml           # the checks; --update-goldens accepts new screens
+idf.py set-target esp32s3 build flash monitor   # the board
+```
+
+## Rules
+
+- **Same source for both targets.** Use LVGL for the UI and the `lcd349_*` API for the display, touch, buttons, power, battery, audio, clock, storage, Wi-Fi and the serial console. Never call `esp_lcd`, `esp_wifi`, `driver/*` or `esp_sleep` directly, and never test `CONFIG_IDF_TARGET` in product code.
+- **LVGL from one place.** Touch LVGL only in LVGL callbacks, or between `lcd349_ui_lock()` and `lcd349_ui_unlock()`. Kit callbacks for buttons, touch and Wi-Fi run on the kit's event task: hand work to your own task.
+- **Design for the bar.** Touch targets at least 56 px, text at least 12 px, contrast at least 4.5:1, no kinetic scrolling, no press animations (every frame is a full-panel flush). `lcd349 lint` checks these.
+- **Touch never wakes the board, and the press that wakes it only wakes it.** Never design a boot-time BOOT combination: holding BOOT at reset enters download mode.
+- **Keep the checks passing:** `lcd349 lint` has no errors and `lcd349 scenario tests/*.scenario.yaml` passes before a change is done.

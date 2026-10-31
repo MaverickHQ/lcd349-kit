@@ -1,0 +1,24 @@
+{
+  "failure": "iteration 3087: step 1: wait timed out; last lines: I (2166150544) inputs: tap count 3084 | I (2166150545) inputs: touch up 320 88 | I (2166150570) inputs: button BOOT down | I (2166150688) inputs: button BOOT up | I (2166150689) inputs: gesture SHORT BOOT 121 ms | I (2166150720) inputs: touch down 80 30 | I (2166150923) inputs: touch up 560 30 | I (2166151051) inputs: touch down 320 88 | I (2166151145) inputs: tap count 3085 | I (2166151145) inputs: touch up 320 88 | I (2166151166) inputs: button BOOT down | I (2166151287) inputs: button BOOT up | I (2166151287) inputs: gesture SHORT BOOT 120 ms | I (2166151330) inputs: touch down 80 30 | I (2166151533) inputs: touch up 560 30 | I (2166151712) inputs: touch down 320 88 | I (2166151812) inputs: tap count 3086 | I (2166151812) inputs: touch up 320 88 | I (2166151833) inputs: button BOOT down | I (2166151953) inputs: button BOOT up",
+  "frames": 41128,
+  "iterations": 3087,
+  "kit_version": "0.1.0-dev",
+  "pass": false,
+  "product_growth_pct": -17.5,
+  "product_rss_kb": {
+    "first": 3792,
+    "median_after_warmup": 6288,
+    "median_at_end": 5184,
+    "peak": 6512
+  },
+  "ran": "32m55s",
+  "samples": 34,
+  "started": "2026-10-17T17:30:10+01:00",
+  "supervisor_growth_pct": -1.2,
+  "supervisor_rss_kb": {
+    "median_after_warmup": 7472,
+    "median_at_end": 7376
+  },
+  "warmup": "10m0s",
+  "window": "1h0m0s"
+}

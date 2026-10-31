@@ -1,0 +1,21 @@
+version: "0.1.0"
+description: "Board SDK for the Waveshare ESP32-S3-Touch-LCD-3.49, with an emulator backend for ESP-IDF's linux target"
+license: "Apache-2.0"
+targets:
+  - esp32s3
+  - linux
+dependencies:
+  idf: ">=5.5,<5.6"
+  lvgl/lvgl:
+    version: "9.6.0"
+    require: public
+  # The hardware backend only (src/hw): the panel, and the ES8311 codec.
+  # esp_lcd_axs15231b's touch driver isn't used (kit ADR 0002).
+  espressif/esp_lcd_axs15231b:
+    version: "2.1.1"
+    rules:
+      - if: "target == esp32s3"
+  espressif/esp_codec_dev:
+    version: "1.6.2"
+    rules:
+      - if: "target == esp32s3"

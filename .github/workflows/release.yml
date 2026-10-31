@@ -1,0 +1,217 @@
+name: release
+
+# A release is built here, on its tag, never on a Mac (phase 5 design D5K-1):
+# lcd349 and lcd349-view for macOS arm64 and Linux x86_64, SHA256SUMS, a build
+# attestation for each binary, and the GitHub release.
+#
+# The plugin's launcher runs a downloaded lcd349 only if its SHA-256 is in
+# plugin/scripts/checksums.txt, in the tagged commit (requirement 2.4). lcd349
+# is pure Go and builds reproducibly here, so a release takes two runs:
+#   1. Run this workflow by hand on the commit with the new version. It builds
+#      everything and publishes nothing; its summary (and its SHA256SUMS
+#      artifact) gives the lcd349 lines for checksums.txt.
+#   2. Add those lines to plugin/scripts/checksums.txt and tag that commit
+#      vX.Y.Z. On the tag, this workflow builds again, refuses to publish
+#      unless the lcd349 binaries match the tagged checksums.txt and CHANGELOG.md
+#      has a "## vX.Y.Z (date)" entry, attests every binary and creates the release.
+#
+# Every action is pinned by commit SHA (its release in the comment), and SDL2 to
+# an exact version (requirement 1.6).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lcd349:
+    name: lcd349 for macOS arm64 and Linux x86_64
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          # A release build trusts no cache.
+          cache: false
+      - name: The tag is the kit's version
+        id: version
+        run: |
+          version=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' kit.go)
+          if [ -z "$version" ]; then
+            echo "::error::no Version in kit.go"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME, but kit.go says $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # The plugin's manifest, the launcher, the component and the viewer say
+      # the same version as kit.go; the launcher's own tests.
+      - run: go test -count=1 ./internal/repocheck/
+      - name: Build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          # Reproducible: no cgo, no paths, no VCS stamp, no build ID.
+          CGO_ENABLED: "0"
+          GOTOOLCHAIN: local
+        run: |
+          mkdir -p dist
+          for target in darwin/arm64 linux/amd64; do
+            os=${target%/*} arch=${target#*/}
+            GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false -ldflags=-buildid= \
+              -o "dist/lcd349_${VERSION}_${os}_${arch}" ./cmd/lcd349
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lcd349
+          path: dist/
+          if-no-files-found: error
+
+  viewer:
+    name: lcd349-view for ${{ matrix.name }}
+    needs: lcd349
+    strategy:
+      matrix:
+        include:
+          - name: macOS arm64
+            runner: macos-14
+            machine: arm64
+            asset: darwin_arm64
+          - name: Linux x86_64
+            runner: ubuntu-24.04
+            machine: x86_64
+            asset: linux_amd64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # SDL2 at exact versions. On macOS it's built static from libsdl.org's
+      # release, checked by its SHA-256, so the shipped viewer links only the
+      # system's frameworks. On Linux it comes from Ubuntu's archive as it was
+      # on 2026-10-30 (snapshot.ubuntu.com).
+      - name: SDL2
+        env:
+          SDL2_VERSION: 2.32.10
+          SDL2_SHA256: 5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165
+          UBUNTU_SNAPSHOT: 20261030T000000Z
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            cd "$RUNNER_TEMP"
+            curl -fsSLO "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-${SDL2_VERSION}.tar.gz"
+            echo "${SDL2_SHA256}  SDL2-${SDL2_VERSION}.tar.gz" | shasum -a 256 -c
+            tar xzf "SDL2-${SDL2_VERSION}.tar.gz"
+            cmake -S "SDL2-${SDL2_VERSION}" -B sdl2-build -DCMAKE_BUILD_TYPE=Release \
+              -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl2"
+            cmake --build sdl2-build -j 4
+            cmake --install sdl2-build
+          else
+            sudo apt-get update --snapshot "$UBUNTU_SNAPSHOT"
+            sudo apt-get install -y --no-install-recommends --snapshot "$UBUNTU_SNAPSHOT" \
+              libsdl2-dev=2.30.0+dfsg-1ubuntu3.1
+          fi
+      - name: Build and test
+        env:
+          VERSION: ${{ needs.lcd349.outputs.version }}
+          MACHINE: ${{ matrix.machine }}
+          ASSET: ${{ matrix.asset }}
+        run: |
+          if [ "$(uname -m)" != "$MACHINE" ]; then
+            echo "::error::this runner is $(uname -m), not $MACHINE"
+            exit 1
+          fi
+          # On Linux the prefix doesn't exist, and CMake finds the system's SDL2.
+          cmake -S viewer -B build/viewer -DCMAKE_BUILD_TYPE=Release -DVIEW_WERROR=ON \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl2"
+          cmake --build build/viewer
+          build/viewer/lcd349-view-tests
+          if [ "$RUNNER_OS" = macOS ] && otool -L build/viewer/lcd349-view | tail -n +2 | grep -vE '^[[:space:]]+(/System/Library/|/usr/lib/)'; then
+            echo "::error::lcd349-view links a library outside macOS itself"
+            exit 1
+          fi
+          mkdir -p dist
+          cp build/viewer/lcd349-view "dist/lcd349-view_${VERSION}_${ASSET}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lcd349-view-${{ matrix.asset }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: SHA256SUMS, attestations and the release
+    needs: [lcd349, viewer]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # the release
+      id-token: write # the attestations' signing identity
+      attestations: write
+    env:
+      VERSION: ${{ needs.lcd349.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: lcd349*
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: |
+          (cd dist && sha256sum lcd349_* lcd349-view_* > SHA256SUMS)
+          cat dist/SHA256SUMS
+          {
+            echo "### SHA256SUMS for $VERSION"
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+            echo 'The lines for plugin/scripts/checksums.txt:'
+            echo '```'
+            awk '$2 ~ /^lcd349_/' dist/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: SHA256SUMS
+          path: dist/SHA256SUMS
+          if-no-files-found: error
+          overwrite: true
+      - name: The plugin's checksums are these binaries'
+        if: github.ref_type == 'tag'
+        run: |
+          awk '$2 ~ /^lcd349_/' dist/SHA256SUMS | sort > built.txt
+          awk '!/^#/ && NF' plugin/scripts/checksums.txt | sort > shipped.txt
+          if ! diff -u shipped.txt built.txt; then
+            echo "::error::plugin/scripts/checksums.txt doesn't match the lcd349 binaries built from this tag: run this workflow by hand on the commit first, and commit its lcd349 lines"
+            exit 1
+          fi
+      - name: The CHANGELOG entry
+        if: github.ref_type == 'tag'
+        run: |
+          awk -v h="## v$VERSION " '/^## /{ on = index($0, h) == 1; next } on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no \"## v$VERSION (date)\" entry"
+            exit 1
+          fi
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: github.ref_type == 'tag'
+        with:
+          subject-path: dist/lcd349*
+      - name: The release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md dist/*

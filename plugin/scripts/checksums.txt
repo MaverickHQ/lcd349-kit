@@ -1,0 +1,3 @@
+# SHA-256 of each lcd349 release binary, as <hash>  lcd349_<version>_<os>_<arch>.
+# The release (task 10.5) writes it in the same commit as the version. A
+# development plugin has no entries: the launcher then needs lcd349 on PATH.

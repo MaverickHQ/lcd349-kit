@@ -1,0 +1,48 @@
+Adding "set-target"'s dependency "fullclean" to list of commands with default set of options.
+Executing action: fullclean
+Build directory '/work/unsup/build' not found. Nothing to clean.
+Executing action: set-target
+Set Target to: linux, new sdkconfig will be created.
+Running cmake in directory /work/unsup/build
+Executing "cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/someone/.espressif/python_env/idf5.5_py3.12_env/bin/python -DESP_PLATFORM=1 -DIDF_TARGET=linux -DCCACHE_ENABLE=0 /work/unsup"...
+-- Found Git: /usr/bin/git (found version "2.39.5 (Apple Git-154)")
+-- Component directory /home/someone/esp/v5.5.5/esp-idf/components/esp_blockdev does not contain a CMakeLists.txt file. No component will be added
+-- Minimal build - OFF
+-- The C compiler identification is AppleClang 16.0.0.16000026
+-- The CXX compiler identification is AppleClang 16.0.0.16000026
+-- The ASM compiler identification is AppleClang
+-- Found assembler: /usr/bin/cc
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test ver_gnu17_supported
+-- Performing Test ver_gnu17_supported - Success
+-- Performing Test ver_gnu++2b_supported
+-- Performing Test ver_gnu++2b_supported - Success
+-- git rev-parse returned 'fatal: not a git repository (or any of the parent directories): .git'
+-- Could not use 'git describe' to determine PROJECT_VER.
+-- Building ESP-IDF components for target linux
+-- ESP-TEE is currently supported only on the esp32c6;esp32h2;esp32c5 SoCs
+CMake Error at /home/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:337 (message):
+  Failed to resolve component 'esp_lcd' required by component 'main':
+  component not registered.
+Call Stack (most recent call first):
+  /home/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:375 (__build_resolve_and_add_req)
+  /home/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:689 (__build_expand_requirements)
+  /home/someone/esp/v5.5.5/esp-idf/tools/cmake/project.cmake:752 (idf_build_process)
+  CMakeLists.txt:4 (project)
+
+
+-- Configuring incomplete, errors occurred!
+[0;33mHINT: The component 'esp_lcd' could not be found. This could be because: component name was misspelled, the component was not added to the build, the component has been moved to the IDF component manager, the component has been removed and refactored into some other component or the component may not be supported by the selected target.
+Please look out for component in 'https://components.espressif.com' and add using 'idf.py add-dependency' command.
+Refer to the migration guide for more details about moved components.
+Refer to the build-system guide for more details about how components are found and included in the build.[0m
+cmake failed with exit code 1, output of the command is in the /work/unsup/build/log/idf_py_stderr_output_49130 and /work/unsup/build/log/idf_py_stdout_output_49130

@@ -1,0 +1,18 @@
+# The greeting, then a touch and a press, each shown on screen and logged.
+#   lcd349 scenario tests/hello.scenario.yaml
+name: hello
+run: { clock: "2026-10-12T09:00:00Z", usb: true }
+steps:
+  - wait: { log: "hello: ready" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/home.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - touch: { tap: [320, 86] }
+  - wait: { log: "touch up at 320, 86" }
+  - wait: { text: "touch up at 320, 86" }
+  - press: { button: boot }
+  - wait: { log: "button BOOT up" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/boot-pressed.png
+  - press: pwr
+  - wait: { text: "button PWR up" }

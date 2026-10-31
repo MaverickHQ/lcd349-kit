@@ -1,0 +1,69 @@
+# Every recipe page: its golden, its lint, and its flows (task 9.1).
+#   lcd349 scenario tests/gallery.scenario.yaml
+name: gallery
+run: { clock: "2026-10-12T09:00:00Z", battery_mv: 3900, usb: true }
+steps:
+  # List: BOOT steps, a hold opens the selected row as a card; Back returns.
+  - wait: { log: "gallery: ready" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/list.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - press: { button: boot }
+  - press: { button: boot, ms: 1200 }
+  - wait: { log: "opened message 1" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/card.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - touch: { tap: [568, 98] }
+  - wait: { log: "page list" }
+
+  # Tiles: a tap opens a tile and a toast says which.
+  - press: pwr
+  - wait: { log: "page tiles" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/tiles.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - touch: { tap: [234, 98] }
+  - wait: { log: "opened tile Alerts" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/toast.png
+
+  # Confirm: Cancel has the focus first; BOOT steps to Delete, a hold chooses.
+  - press: pwr
+  - wait: { log: "page confirm" }
+  - touch: { tap: [528, 98] }
+  - wait: { log: "asking" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/confirm.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - press: { button: boot, ms: 1200 }
+  - wait: { log: "cancelled" }
+  - touch: { tap: [528, 98] }
+  - wait: { log: "asking" }
+  - press: { button: boot }
+  - press: { button: boot, ms: 1200 }
+  - wait: { log: "confirmed" }
+
+  # Hold: a hold that began within 500 ms of the prompt is ignored; a later one approves.
+  - press: pwr
+  - wait: { log: "page hold" }
+  - press: { button: boot, ms: 1200 }
+  - wait: { log: "hold ignored" }
+  - wait: { idle_ms: 300 }
+  - press: { button: boot, ms: 1200 }
+  - wait: { log: "approved" }
+
+  # Setup: brightness steps, and the setting survives a reset.
+  - press: pwr
+  - wait: { log: "page setup" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/setup.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - touch: { tap: [44, 90] }
+  - wait: { text: "70%" }
+  - touch: { tap: [558, 98] }
+  - wait: { log: "setup saved" }
+  - state: { expect: { display: { backlight: 70 } } }
+  - power: reset
+  - wait: { log: "gallery: ready" }
+  - state: { expect: { display: { backlight: 70 } } }

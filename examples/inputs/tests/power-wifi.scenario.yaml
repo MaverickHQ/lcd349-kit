@@ -1,0 +1,37 @@
+# Battery, Wi-Fi and power states on battery power (task 9.1).
+#   lcd349 scenario tests/power-wifi.scenario.yaml
+name: power-wifi
+run: { clock: "2026-10-12T09:00:00Z", battery_mv: 3700, usb: false }
+steps:
+  - wait: { log: "inputs: ready" }
+  - state: { expect: { source: battery, battery: { mv: 3700 }, power: "on" } }
+
+  # Wi-Fi: the product's saved network comes into range, and it joins.
+  - state: { set: { wifi: { networks: [{ ssid: lcd349-test, password: password123 }] } } }
+  - wait: { log: "wifi connected", timeout_ms: 8000 }
+  - wait: { text: "wifi connected lcd349-test", timeout_ms: 3000 }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/wifi-connected.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+
+  # The battery falls; the status line follows within its 1 s refresh.
+  - state: { set: { battery: { mv: 3500 } } }
+  - wait: { text: "battery 3500 mV", timeout_ms: 3000 }
+
+  # Light sleep: a 1 s BOOT hold sleeps; the screen goes dark; PWR wakes it,
+  # and that waking press does nothing else.
+  - press: { button: boot, ms: 1200 }
+  - wait: { log: "sleeping until a button" }
+  - state: { expect: { power: light_sleep, display: { dark: true } } }
+  - press: { button: pwr, ms: 150 }
+  - wait: { log: "woke by PWR" }
+  - state: { expect: { power: "on" } }
+
+  # Power off: a 3 s PWR hold on battery turns the board off; PWR turns it on
+  # again, and storage and the battery level survive.
+  - press: { button: pwr, ms: 3300 }
+  - wait: { log: "power off requested" }
+  - state: { expect: { power: "off" } }
+  - press: pwr
+  - wait: { log: "boot count 2, boot reason 0" }
+  - state: { expect: { power: "on", battery: { mv: 3500 } } }

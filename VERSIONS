@@ -1,0 +1,10 @@
+# Toolchain pin (task 0.1, 2026-10-12). Change only with a new spike run.
+ESP_IDF=v5.5.5                 # git clone -b v5.5.5 --depth 1 --recursive --shallow-submodules; ./install.sh esp32s3
+ARDUINO_ESP32=3.3.12           # latest stable; built on IDF v5.5.5; manifest allows idf >=5.3,<6.2 (herdr-pager needs it)
+LVGL=9.6.0                     # lvgl/lvgl on the Espressif registry (MIT); builds unmodified for the linux target
+ESP_LCD_AXS15231B=2.1.1        # espressif/esp_lcd_axs15231b (Apache-2.0); idf >=5.3
+ESP_IO_EXPANDER_TCA9554=2.0.3  # Apache-2.0; idf >=5.2
+ESP_CODEC_DEV=1.6.2            # latest stable (2.0.0 is beta); idf >=4.0
+HOST=macOS 26.6.2 arm64, Apple clang 16.0.0, Python 3.12.10, CMake (Homebrew), ninja, ccache
+SDL=sdl2-compat 2.32.70 over SDL3 3.4.12 (Homebrew), viewer only
+NOTE=python.org Python ships without CA certificates here: export SSL_CERT_FILE=/etc/ssl/cert.pem for install.sh and component downloads

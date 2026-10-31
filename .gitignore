@@ -1,0 +1,25 @@
+build/
+# A Go package, not build output:
+!/internal/build/
+build-emu/
+managed_components/
+sdkconfig
+sdkconfig.old
+spikes/*/run/
+spikes/*/out/
+spikes/emu/viewer/lcd349-view
+.DS_Store
+spikes/mcp/release/
+# Left beside goldens when a scenario fails:
+*_actual.png
+*_diff.png
+*_step*_screen.png
+.security-scan/
+.claude/settings.local.json
+# Eval runs: result.json is kept; transcripts, logs and project copies stay local.
+evals/results/*/*/transcript.jsonl
+evals/results/*/*/stderr.log
+evals/results/*/*/project/
+# The examples resolve the kit by override_path, which their lock files record as an
+# absolute path; a clone or worktree would build the main checkout's kit (2026-10-21).
+examples/*/dependencies.lock*

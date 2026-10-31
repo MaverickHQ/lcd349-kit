@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lcd349": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/lcd349-launch",
+      "args": ["mcp"]
+    }
+  }
+}

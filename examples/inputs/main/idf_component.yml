@@ -1,0 +1,4 @@
+dependencies:
+  lcd349:
+    # Inside the kit repository; products pin a release instead (see the README).
+    override_path: "../../../components/lcd349"

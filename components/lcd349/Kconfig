@@ -1,0 +1,44 @@
+menu "lcd349 board SDK"
+
+    choice LCD349_BOARD_REV
+        prompt "Board revision"
+        default LCD349_BOARD_REV_V1
+        help
+            V1 boards have no touch interrupt line; V2 boards expose TP_INT,
+            which can replace polling while the screen is on. The revision is
+            on the board's silkscreen.
+
+        config LCD349_BOARD_REV_V1
+            bool "V1 (no touch interrupt)"
+        config LCD349_BOARD_REV_V2
+            bool "V2 (TP_INT)"
+    endchoice
+
+    config LCD349_LIGHT_SLEEP
+        bool "Light sleep in lcd349_sleep_until_button (esp_pm, tickless idle)"
+        depends on !IDF_TARGET_LINUX
+        default y
+        select PM_ENABLE
+        select FREERTOS_USE_TICKLESS_IDLE
+        help
+            lcd349_sleep_until_button puts the board into light sleep through
+            esp_pm with tickless idle (requirement 4.2), allowing it only for
+            the call. That needs power management and tickless idle, which
+            this option turns on, so every product gets them without setting
+            them itself. Without it, lcd349_sleep_until_button returns
+            LCD349_ERR_UNAVAILABLE. Power management adds a little interrupt
+            latency and idle-entry time (ESP-IDF's PM_ENABLE help).
+
+            Leave USJ_NO_AUTO_LS_ON_CONNECTION off (its default): with it on,
+            the board never sleeps while USB is connected. Design D1-11.
+
+    config LCD349_HIL
+        bool "Hardware in the loop over the USB serial console (Phase 1.5; not implemented yet)"
+        depends on !IDF_TARGET_LINUX
+        default n
+        help
+            Accept control requests (info, screenshot, input, wait) as
+            prefixed lines on the USB serial console, so the lcd349 CLI and
+            MCP tools can drive the real board. Requirement 14; task 11.1.
+
+endmenu

@@ -1,0 +1,16 @@
+{
+  "name": "lcd349-kit",
+  "owner": {
+    "name": "MaverickHQ"
+  },
+  "metadata": {
+    "description": "Agent tooling for the Waveshare ESP32-S3-Touch-LCD-3.49: an emulator you can drive over MCP, and a skill that knows the board."
+  },
+  "plugins": [
+    {
+      "name": "lcd349",
+      "source": "./plugin",
+      "description": "Design, build and test LVGL user interfaces for the Waveshare ESP32-S3-Touch-LCD-3.49 in an emulator, with a skill that knows the board's features and limits."
+    }
+  ]
+}

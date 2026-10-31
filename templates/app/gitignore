@@ -1,0 +1,9 @@
+build/
+build-emu/
+managed_components/
+sdkconfig
+sdkconfig.old
+# Left beside a golden when a scenario's screenshot differs:
+*_actual.png
+*_diff.png
+*_step*_screen.png

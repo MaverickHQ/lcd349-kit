@@ -1,0 +1,29 @@
+# Dependabot watches the Actions and the Go modules (requirement 1.7).
+# The public repository is an export of a private working copy, one commit
+# per version (herdr-pager ADR 0010), so its pull requests are notices: the
+# update is made, checked with valvur and pinned in the working copy, and
+# arrives with the next export.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # A release must be a week old before it's proposed (valvur's
+    # dependabot-cooldown): time for a bad one to be found and pulled.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    # A release must be a week old before it's proposed (valvur's
+    # dependabot-cooldown): time for a bad one to be found and pulled.
+    cooldown:
+      default-days: 7
+    groups:
+      go-modules:
+        patterns: ["*"]

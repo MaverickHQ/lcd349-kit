@@ -1,0 +1,13 @@
+# The home screen, then counting by touch and by BOOT. Run: lcd349 scenario tests/app.scenario.yaml
+name: home
+run: { clock: "2026-10-12T09:00:00Z", battery_mv: 3900, usb: true }
+steps:
+  - wait: { log: "ready" }
+  - wait: { idle_ms: 200 }
+  - shot: { golden: goldens/home.png }
+  - lint: { max_errors: 0, max_warnings: 0 }
+  - touch: { tap: [520, 86] }
+  - wait: { log: "count 1" }
+  - press: { button: boot, ms: 120 }
+  - wait: { log: "count 2" }
+  - wait: { text: "COUNT 2" }

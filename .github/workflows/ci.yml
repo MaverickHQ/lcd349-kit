@@ -1,0 +1,165 @@
+name: ci
+
+# Every push, on any branch (task 3.4's throwaway branch included), and every
+# pull request.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (ESP-IDF ${{ matrix.check }})
+    runs-on: ubuntu-latest
+    # Keep in step with VERSIONS (ESP_IDF). The digest goes with the tag: it's
+    # Docker Hub's index digest for v5.5.5 (Ubuntu 24.04), so change both.
+    container: espressif/idf:v5.5.5@sha256:a9231d0697ab8f7517cc072e93b7c83e04907bfbfba80b6440d7dbbf90665cf2
+    env:
+      # Ubuntu's snapshot of its archive on this date: apt installs exactly the
+      # versions below for good (requirement 1.6).
+      APT_SNAPSHOT: 20261030T000000Z
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [go, host-tests, build-esp32s3, build-linux]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: linux target prerequisites
+        if: matrix.check != 'build-esp32s3'
+        run: |
+          apt-get update --snapshot "$APT_SNAPSHOT"
+          apt-get install -y --no-install-recommends --snapshot "$APT_SNAPSHOT" libbsd-dev=0.12.1-1build1.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: matrix.check == 'go' || matrix.check == 'build-esp32s3'
+        with:
+          go-version-file: go.mod
+
+      - name: Host unit tests (linux target)
+        if: matrix.check == 'host-tests'
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          cd components/lcd349/test_apps/host
+          idf.py --preview set-target linux build
+          # A hang (the linux target can deadlock) must fail, not stall CI.
+          timeout 300 ./build/lcd349_host_test.elf
+
+      - name: Generated files are current
+        if: matrix.check == 'go'
+        run: go run ./internal/devicegen --check
+      - name: go vet
+        if: matrix.check == 'go'
+        run: go vet ./...
+      - name: Instance-test and viewer prerequisites
+        if: matrix.check == 'go'
+        shell: bash
+        run: |
+          # lsof and gdb (stack samples of hung instances) for the instance
+          # tests; SDL and pkg-config for the viewer they build. The apt index
+          # is the snapshot's, from the linux target prerequisites step.
+          apt-get install -y --no-install-recommends --snapshot "$APT_SNAPSHOT" \
+            lsof=4.95.0-1build3 gdb=15.1-1ubuntu1~24.04.1 \
+            libsdl2-dev=2.30.0+dfsg-1ubuntu3.1 pkg-config=1.8.1-2build1
+      - name: Every example, for the emulator
+        if: matrix.check == 'go'
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          for ex in examples/*/; do go run ./cmd/lcd349 build -C "$ex"; done
+      - name: Go tests, with ESP-IDF, the viewer, the examples and the template required
+        if: matrix.check == 'go'
+        shell: bash
+        env:
+          LCD349_REQUIRE_IDF: "1"
+          LCD349_REQUIRE_VIEWER: "1"
+          LCD349_REQUIRE_EXAMPLES: "1"
+          LCD349_TEMPLATE_BUILD: "1"
+        run: |
+          . "$IDF_PATH/export.sh"
+          # The scenarios have the next step to themselves, so its duration is
+          # KN7's.
+          go test ./... -skip '^TestExampleScenarios$' -count=1 -timeout 20m
+      - name: Every example's scenarios, headless (KN7, at most 5 minutes)
+        if: matrix.check == 'go'
+        timeout-minutes: 5
+        shell: bash
+        env:
+          LCD349_REQUIRE_EXAMPLES: "1"
+        run: |
+          . "$IDF_PATH/export.sh"
+          go test ./internal/clitest/ -run '^TestExampleScenarios$' -count=1 -v
+
+      - name: Build check for the board
+        if: matrix.check == 'build-esp32s3'
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          (cd components/lcd349/test_apps/build_check && idf.py set-target esp32s3 build)
+          # The lcd349 new template builds for the board too (R11.3); the go
+          # check builds it for the emulator and runs its scenario.
+          go run ./cmd/lcd349 new /tmp/template-app --kit-path "$PWD/components/lcd349"
+          idf.py -C /tmp/template-app set-target esp32s3 build
+          for ex in examples/*/; do idf.py -C "$ex" set-target esp32s3 build; done
+
+      - name: Build check for the emulator
+        if: matrix.check == 'build-linux'
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          cd components/lcd349/test_apps/build_check
+          idf.py -B build-emu -D SDKCONFIG=build-emu/sdkconfig --preview set-target linux build
+
+  plugin:
+    name: Plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.23.4
+      # The version the plugin was last validated with on the Mac.
+      - run: npm install -g @anthropic-ai/claude-code@2.1.311
+      - run: claude plugin validate plugin --strict
+      - run: claude plugin validate . --strict
+      - name: Launcher shell syntax
+        run: sh -n plugin/scripts/lcd349-launch
+
+  macos:
+    name: macOS arm64 (Go and viewer, KN5)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      # SDL2 from libsdl-org's release, checked against its SHA-256 and built
+      # into a prefix: Homebrew can't install an exact version (requirement
+      # 1.6). CMAKE_PREFIX_PATH also reaches the Go tests that build the viewer.
+      - name: SDL2 2.32.10
+        env:
+          SDL2_SHA256: 5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLO https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz
+          echo "$SDL2_SHA256  SDL2-2.32.10.tar.gz" | shasum -a 256 -c
+          tar -xzf SDL2-2.32.10.tar.gz
+          cmake -S SDL2-2.32.10 -B sdl2-build -DCMAKE_BUILD_TYPE=Release -DSDL_TEST=OFF \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl2"
+          cmake --build sdl2-build --parallel
+          cmake --install sdl2-build
+          echo "CMAKE_PREFIX_PATH=$RUNNER_TEMP/sdl2" >> "$GITHUB_ENV"
+      - name: Viewer build and unit tests
+        run: |
+          cmake -S viewer -B viewer/build -DVIEW_WERROR=ON -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH"
+          cmake --build viewer/build
+          viewer/build/lcd349-view-tests
+      - run: go vet ./...
+      - run: go test ./...

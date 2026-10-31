@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcd349-kit.invalid/device.schema.json",
+  "title": "lcd349-kit device description",
+  "description": "The single source of board facts, limits, timings and design rules (requirement 10). Every fact carries a source and a verification date; null marks an unverified value.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "board", "i2c", "expander", "display", "case", "touch", "buttons", "power", "power_states", "audio", "rtc", "imu", "wifi", "kit", "budgets", "fidelity_not_modelled", "design_rules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema": { "const": 1 },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "vendor", "soc", "cpu_mhz", "psram_mb", "flash_mb", "source", "verified", "revision"],
+      "properties": {
+        "name": { "$ref": "#/$defs/text" },
+        "vendor": { "$ref": "#/$defs/text" },
+        "variant_note": { "$ref": "#/$defs/text" },
+        "soc": { "$ref": "#/$defs/text" },
+        "cpu_mhz": { "type": "integer", "minimum": 1 },
+        "psram_mb": { "type": "integer", "minimum": 0 },
+        "flash_mb": { "type": "integer", "minimum": 1 },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "revision": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "i2c": {
+      "description": "The main I2C bus. Touch has its own bus (touch.pins).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pins", "note", "source", "verified"],
+      "properties": {
+        "pins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sda", "scl"],
+          "properties": { "sda": { "$ref": "#/$defs/gpio" }, "scl": { "$ref": "#/$defs/gpio" } }
+        },
+        "note": { "$ref": "#/$defs/text" },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" }
+      }
+    },
+    "expander": {
+      "description": "The I/O expander on the main I2C bus. pins maps each signal to its port bit (P0-P7); int_gpio is the expander's interrupt output.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chip", "i2c_addr", "int_gpio", "pins", "source", "verified"],
+      "properties": {
+        "chip": { "$ref": "#/$defs/text" },
+        "i2c_addr": { "$ref": "#/$defs/i2c_addr" },
+        "int_gpio": { "$ref": "#/$defs/gpio" },
+        "pins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tp_int", "bl_en", "imu_int1", "imu_int2", "rtc_int", "lcd_te", "sys_en", "ns_mode"],
+          "properties": {
+            "tp_int": { "$ref": "#/$defs/port_bit" }, "bl_en": { "$ref": "#/$defs/port_bit" },
+            "imu_int1": { "$ref": "#/$defs/port_bit" }, "imu_int2": { "$ref": "#/$defs/port_bit" },
+            "rtc_int": { "$ref": "#/$defs/port_bit" }, "lcd_te": { "$ref": "#/$defs/port_bit" },
+            "sys_en": { "$ref": "#/$defs/port_bit" }, "ns_mode": { "$ref": "#/$defs/port_bit" }
+          }
+        },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" }
+      }
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controller", "bus", "pins", "panel_w", "panel_h", "landscape_w", "landscape_h", "format", "byte_swap", "full_frame_only", "hw_rotation", "diagonal_in", "ppi", "px_per_mm", "mm_w", "mm_h", "source", "verified", "rotation", "flush_ms", "refresh_hz", "backlight_active_low"],
+      "properties": {
+        "controller": { "$ref": "#/$defs/text" },
+        "bus": { "$ref": "#/$defs/text" },
+        "pins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cs", "pclk", "d0", "d1", "d2", "d3", "rst", "backlight"],
+          "properties": {
+            "cs": { "$ref": "#/$defs/gpio" }, "pclk": { "$ref": "#/$defs/gpio" },
+            "d0": { "$ref": "#/$defs/gpio" }, "d1": { "$ref": "#/$defs/gpio" },
+            "d2": { "$ref": "#/$defs/gpio" }, "d3": { "$ref": "#/$defs/gpio" },
+            "rst": { "$ref": "#/$defs/gpio" }, "backlight": { "$ref": "#/$defs/gpio" }
+          }
+        },
+        "panel_w": { "type": "integer", "minimum": 1 },
+        "panel_h": { "type": "integer", "minimum": 1 },
+        "landscape_w": { "type": "integer", "minimum": 1 },
+        "landscape_h": { "type": "integer", "minimum": 1 },
+        "format": { "const": "RGB565" },
+        "byte_swap": { "type": "boolean" },
+        "full_frame_only": { "type": "boolean" },
+        "hw_rotation": { "type": "boolean" },
+        "diagonal_in": { "type": "number", "exclusiveMinimum": 0 },
+        "ppi": { "type": "integer", "minimum": 1 },
+        "px_per_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "mm_w": { "type": "number", "exclusiveMinimum": 0 },
+        "mm_h": { "type": "number", "exclusiveMinimum": 0 },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "rotation": { "$ref": "#/$defs/fact" },
+        "flush_ms": { "$ref": "#/$defs/fact" },
+        "refresh_hz": { "$ref": "#/$defs/fact" },
+        "backlight_active_low": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "case": {
+      "description": "The enclosure, for the viewer's outline (requirement 4.2). Landscape: mm_w is the long side.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "mm_w", "mm_h", "mm_d", "source", "verified", "screen_offset_mm"],
+      "properties": {
+        "name": { "$ref": "#/$defs/text" },
+        "mm_w": { "type": "number", "exclusiveMinimum": 0 },
+        "mm_h": { "type": "number", "exclusiveMinimum": 0 },
+        "mm_d": { "type": "number", "exclusiveMinimum": 0 },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "screen_offset_mm": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "touch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "controller", "i2c_addr", "pins", "points", "wake_source", "int_pin", "source", "verified", "period_ms", "multi_point", "through_case"],
+      "properties": {
+        "type": { "$ref": "#/$defs/text" },
+        "controller": { "$ref": "#/$defs/text" },
+        "i2c_addr": { "$ref": "#/$defs/i2c_addr" },
+        "pins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sda", "scl"],
+          "properties": { "sda": { "$ref": "#/$defs/gpio" }, "scl": { "$ref": "#/$defs/gpio" } }
+        },
+        "points": { "type": "integer", "minimum": 1 },
+        "wake_source": { "const": false },
+        "int_pin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["V1", "V2"],
+          "properties": { "V1": { "type": ["string", "null"] }, "V2": { "type": ["string", "null"] } }
+        },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "period_ms": { "$ref": "#/$defs/fact" },
+        "multi_point": { "$ref": "#/$defs/fact" },
+        "through_case": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "buttons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "verified", "items"],
+      "properties": {
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "gpio", "active", "reset_trap", "position_mm"],
+            "properties": {
+              "id": { "enum": ["BOOT", "PWR"] },
+              "gpio": { "$ref": "#/$defs/gpio" },
+              "active": { "enum": ["low", "high"] },
+              "reset_trap": { "type": ["string", "null"] },
+              "position_mm": { "$ref": "#/$defs/fact" }
+            }
+          }
+        }
+      }
+    },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hold", "battery", "source", "verified", "battery_capacity_mah", "battery_curve"],
+      "properties": {
+        "hold": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["expander", "pin", "note"],
+          "properties": { "expander": { "$ref": "#/$defs/text" }, "pin": { "$ref": "#/$defs/text" }, "note": { "$ref": "#/$defs/text" } }
+        },
+        "battery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["adc", "divider", "chemistry", "nominal_v"],
+          "properties": {
+            "adc": { "type": "string", "pattern": "^ADC[12]_CH[0-9]$" },
+            "divider": { "type": "number", "exclusiveMinimum": 0 },
+            "chemistry": { "$ref": "#/$defs/text" },
+            "nominal_v": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "battery_capacity_mah": { "$ref": "#/$defs/fact" },
+        "battery_curve": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "power_states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "what", "current_ma"],
+        "properties": {
+          "id": { "$ref": "#/$defs/ident" },
+          "what": { "$ref": "#/$defs/text" },
+          "current_ma": { "$ref": "#/$defs/fact" }
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dac", "adc", "mics", "speaker", "codec", "source", "verified", "amp_enable", "speaker_connected"],
+      "properties": {
+        "dac": { "$ref": "#/$defs/text" },
+        "adc": { "$ref": "#/$defs/text" },
+        "mics": { "type": "integer", "minimum": 0 },
+        "speaker": { "$ref": "#/$defs/text" },
+        "codec": {
+          "description": "How the DAC is wired: its address on the main I2C bus and its I2S pins.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chip", "i2c_addr", "i2s_pins", "source", "verified"],
+          "properties": {
+            "chip": { "$ref": "#/$defs/text" },
+            "i2c_addr": { "$ref": "#/$defs/i2c_addr" },
+            "i2s_pins": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mclk", "bclk", "ws", "dout"],
+              "properties": {
+                "mclk": { "$ref": "#/$defs/gpio" }, "bclk": { "$ref": "#/$defs/gpio" },
+                "ws": { "$ref": "#/$defs/gpio" }, "dout": { "$ref": "#/$defs/gpio" }
+              }
+            },
+            "source": { "$ref": "#/$defs/text" },
+            "verified": { "$ref": "#/$defs/verified" }
+          }
+        },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" },
+        "amp_enable": { "$ref": "#/$defs/fact" },
+        "speaker_connected": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "rtc": { "$ref": "#/$defs/i2c_chip" },
+    "imu": { "$ref": "#/$defs/i2c_chip" },
+    "wifi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bands_ghz", "note", "source", "verified"],
+      "properties": {
+        "bands_ghz": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+        "note": { "$ref": "#/$defs/text" },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" }
+      }
+    },
+    "kit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backlight_default_pct", "button_debounce_ms", "power_off_usb_check_ms", "wifi_max_networks", "wifi_scan_interval_s", "audio_sample_rate_hz", "emulator_battery_mv", "source", "verified"],
+      "properties": {
+        "backlight_default_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "button_debounce_ms": { "type": "integer", "minimum": 1 },
+        "power_off_usb_check_ms": { "type": "integer", "minimum": 1 },
+        "wifi_max_networks": { "type": "integer", "minimum": 1 },
+        "wifi_scan_interval_s": { "type": "integer", "minimum": 1 },
+        "audio_sample_rate_hz": { "type": "integer", "minimum": 1 },
+        "emulator_battery_mv": { "type": "integer", "minimum": 0 },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["psram_kb", "internal_ram_kb", "lvgl_mem_kb"],
+      "properties": {
+        "psram_kb": { "$ref": "#/$defs/fact" },
+        "internal_ram_kb": { "$ref": "#/$defs/fact" },
+        "lvgl_mem_kb": { "$ref": "#/$defs/fact" }
+      }
+    },
+    "fidelity_not_modelled": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "what", "check_on_hardware"],
+        "properties": {
+          "id": { "$ref": "#/$defs/slug" },
+          "what": { "$ref": "#/$defs/text" },
+          "check_on_hardware": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "design_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "severity", "threshold", "why", "fix", "exempt_tags", "source", "verified"],
+        "properties": {
+          "id": { "$ref": "#/$defs/slug" },
+          "kind": { "enum": ["min_size", "min_font", "min_contrast", "check"] },
+          "severity": { "enum": ["error", "warning", "off"] },
+          "threshold": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["value", "unit"],
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "unit": { "enum": ["px", "ratio"] }
+                }
+              }
+            ]
+          },
+          "why": { "$ref": "#/$defs/text" },
+          "fix": { "$ref": "#/$defs/text" },
+          "exempt_tags": { "type": "array", "items": { "$ref": "#/$defs/slug" } },
+          "source": { "$ref": "#/$defs/text" },
+          "verified": { "$ref": "#/$defs/verified" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "ident": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "gpio": { "type": "integer", "minimum": 0, "maximum": 48 },
+    "port_bit": { "type": "integer", "minimum": 0, "maximum": 7 },
+    "i2c_addr": { "type": "string", "pattern": "^0x[0-9A-F]{2}$" },
+    "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "verified": { "oneOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] },
+    "fact": {
+      "description": "A value that has its own source and verification. value is null until it is verified; assumed is a stand-in used only by the emulator and the SDK, never as a lint threshold.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source", "verified"],
+      "properties": {
+        "value": {},
+        "assumed": {},
+        "assumed_basis": { "$ref": "#/$defs/text" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" }
+      },
+      "if": { "properties": { "verified": { "type": "string" } } },
+      "then": { "properties": { "value": { "not": { "type": "null" } } } },
+      "else": { "properties": { "value": { "type": "null" } } }
+    },
+    "i2c_chip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chip", "i2c_addr", "source", "verified"],
+      "properties": {
+        "chip": { "$ref": "#/$defs/text" },
+        "i2c_addr": { "$ref": "#/$defs/i2c_addr" },
+        "source": { "$ref": "#/$defs/text" },
+        "verified": { "$ref": "#/$defs/verified" }
+      }
+    }
+  }
+}

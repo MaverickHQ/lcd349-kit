@@ -1,0 +1,325 @@
+{
+  "$schema": "./device.schema.json",
+  "schema": 1,
+  "board": {
+    "name": "ESP32-S3-Touch-LCD-3.49",
+    "vendor": "Waveshare",
+    "variant_note": "The \"B\" listing is the same board in Case B with a Li-Po battery.",
+    "soc": "ESP32-S3R8",
+    "cpu_mhz": 240,
+    "psram_mb": 8,
+    "flash_mb": 16,
+    "source": "Waveshare wiki (ESP32-S3-Touch-LCD-3.49); Espressif ESP32-S3 datasheet for the CPU clock",
+    "verified": "2026-10-11",
+    "revision": {
+      "value": "V2",
+      "options": ["V1", "V2"],
+      "source": "task 0.3, spikes/hw: the touch controller's interrupt reaches TCA9554 P0 (it pulsed low only while a finger was down, on each of three taps), and V1 boards have no touch interrupt. Inferred from that; the silkscreen wasn't read (the case can't be opened).",
+      "verified": "2026-10-18"
+    }
+  },
+  "i2c": {
+    "pins": { "sda": 47, "scl": 48 },
+    "note": "The main bus carries the expander, the codec, the microphone ADC, the RTC and the IMU. Touch has its own bus.",
+    "source": "task 0.3, spikes/hw: pins from the Waveshare demo (facts only); a scan of the bus found ES8311 0x18, TCA9554 0x20, ES7210 0x40, PCF85063 0x51 and QMI8658 0x6B",
+    "verified": "2026-10-18"
+  },
+  "expander": {
+    "chip": "TCA9554",
+    "i2c_addr": "0x20",
+    "int_gpio": 42,
+    "pins": { "tp_int": 0, "bl_en": 1, "imu_int1": 2, "imu_int2": 3, "rtc_int": 4, "lcd_te": 5, "sys_en": 6, "ns_mode": 7 },
+    "source": "task 0.3, spikes/hw: the schematic (Waveshare wiki) names each port pin and routes the expander's INT to GPIO42; the bus scan found the chip at 0x20; P0 (touch interrupt), P5 (TE) and P7 (amplifier) were confirmed on the board",
+    "verified": "2026-10-18"
+  },
+  "display": {
+    "controller": "AXS15231B",
+    "bus": "QSPI",
+    "pins": { "cs": 9, "pclk": 10, "d0": 11, "d1": 12, "d2": 13, "d3": 14, "rst": 21, "backlight": 8 },
+    "panel_w": 172,
+    "panel_h": 640,
+    "landscape_w": 640,
+    "landscape_h": 172,
+    "format": "RGB565",
+    "byte_swap": true,
+    "full_frame_only": true,
+    "hw_rotation": false,
+    "diagonal_in": 3.49,
+    "ppi": 190,
+    "px_per_mm": 7.5,
+    "mm_w": 86,
+    "mm_h": 23,
+    "source": "Waveshare wiki and demo repo (facts only; the repo has no licence). Full-frame-only and no hardware rotation: atomic14's AXS15231B write-up (community). PPI and mm computed from the 3.49-inch diagonal and 172x640.",
+    "verified": "2026-10-11",
+    "rotation": {
+      "value": "cw90",
+      "options": ["cw90", "ccw90"],
+      "source": "task 0.3, spikes/hw: with cw90 the image is upright when the edge with the buttons is at the top (owner)",
+      "verified": "2026-10-18"
+    },
+    "flush_ms": {
+      "value": 13,
+      "source": "task 0.3, spikes/hw: mean of 100 full-frame flushes, 13.0 ms (p95 13.2), QSPI at 40 MHz, rotating 64-row strips into two internal bounce buffers while the previous strip is sent. Rotating the whole frame first (the kit's lcd349__rotate_frame, PSRAM to PSRAM) took 75.7 ms, so the hardware backend must rotate in strips.",
+      "verified": "2026-10-18"
+    },
+    "refresh_hz": {
+      "value": 61,
+      "source": "task 0.3, spikes/hw: the panel's TE signal (expander P5) pulses every 16.41 ms (15-18 ms) over 1,218 pulses (spikes/hw/logs/expander-and-tone.log)",
+      "verified": "2026-10-18"
+    },
+    "backlight_active_low": {
+      "value": true,
+      "source": "task 0.3, spikes/hw: the Waveshare demo drives duty 0 for full brightness (facts only); confirmed on the board with an inverted 50 kHz PWM output",
+      "verified": "2026-10-18"
+    }
+  },
+  "case": {
+    "name": "Case B",
+    "mm_w": 98.5,
+    "mm_h": 34.8,
+    "mm_d": 22.8,
+    "source": "Waveshare wiki (Case B dimensions); the owner confirmed the board is in Case B",
+    "verified": "2026-10-11",
+    "screen_offset_mm": {
+      "value": [5.9, 6.0],
+      "source": "task 0.3: Waveshare's Case B dimension drawing (case 98.50 x 34.80 mm, active area 84.00 x 22.58 mm), margins scaled from the drawing (about 0.5 mm), turned 180 degrees to the upright landscape (buttons edge at the top)",
+      "verified": "2026-10-18"
+    }
+  },
+  "touch": {
+    "type": "capacitive",
+    "controller": "AXS15231B (integrated touch)",
+    "i2c_addr": "0x3B",
+    "pins": { "sda": 17, "scl": 18 },
+    "points": 1,
+    "wake_source": false,
+    "int_pin": { "V1": null, "V2": "TCA9554 P0 (unusable: the expander's interrupt on GPIO42 fires on every input change, including TE on P5)" },
+    "source": "Waveshare wiki and demo repo (facts only); the controller reports up to two points (multi_point), and the kit uses the first",
+    "verified": "2026-10-11",
+    "period_ms": {
+      "value": 30,
+      "source": "task 0.3, spikes/hw: a finger held still, 4 s per period. The controller makes a new report about every 16.8 ms and answers 'no new data' (0x30 in every byte) between reports, which reads like a lift: 5 ms 224 false lifts, 10 ms 147, 15 ms 19, 20 ms and 30 ms none. 30 ms leaves headroom for scheduling jitter.",
+      "verified": "2026-10-18"
+    },
+    "multi_point": { "value": true, "source": "task 0.3, spikes/hw: two fingers give a report with two points, each with a touch ID (the kit still uses one point)", "verified": "2026-10-18" },
+    "through_case": { "value": true, "source": "task 0.3: Case B leaves the glass open; every touch test ran through the owner's screen protector", "verified": "2026-10-18" }
+  },
+  "buttons": {
+    "source": "Waveshare wiki and demo repo (facts only); Espressif ESP32-S3 boot-mode strapping for GPIO0",
+    "verified": "2026-10-11",
+    "items": [
+      {
+        "id": "BOOT",
+        "gpio": 0,
+        "active": "low",
+        "reset_trap": "Held through a reset, BOOT enters the ROM download mode, so never design a boot-time BOOT combination.",
+        "position_mm": { "value": [79.6, -6.0], "source": "task 0.3: Waveshare's Case B drawing and photos. The buttons are 10 mm apart on the top edge (upright landscape), at the right-hand end by the USB-C port, BOOT nearest it (layout confirmed by the owner); the centre is scaled from the drawing (about 0.5 mm); y is the case edge.", "verified": "2026-10-18" }
+      },
+      {
+        "id": "PWR",
+        "gpio": 16,
+        "active": "low",
+        "reset_trap": null,
+        "position_mm": { "value": [69.4, -6.0], "source": "task 0.3: Waveshare's Case B drawing and photos. PWR is the middle of the three buttons at the right-hand end of the top edge (upright landscape; layout confirmed by the owner); the centre is scaled from the drawing (about 0.5 mm); y is the case edge.", "verified": "2026-10-18" }
+      }
+    ]
+  },
+  "power": {
+    "hold": { "expander": "TCA9554", "pin": "P6", "note": "On battery the board stays on only while P6 is asserted; releasing it powers the board off." },
+    "battery": { "adc": "ADC1_CH3", "divider": 3, "chemistry": "Li-Po", "nominal_v": 3.7 },
+    "source": "Waveshare wiki and demo repo (facts only); Case B battery confirmed by the owner",
+    "verified": "2026-10-11",
+    "battery_capacity_mah": { "value": 2500, "source": "the cell's label, read by the owner: 2,500 mAh at 3.7 V, 9.25 Wh, rated 35 A", "verified": "2026-10-21" },
+    "battery_curve": {
+      "value": null,
+      "assumed": [
+        [4200, 100], [4150, 95], [4110, 90], [4080, 85], [4020, 80], [3980, 75], [3950, 70],
+        [3910, 65], [3870, 60], [3850, 55], [3840, 50], [3820, 45], [3800, 40], [3790, 35],
+        [3770, 30], [3750, 25], [3730, 20], [3710, 15], [3690, 10], [3610, 5], [3270, 0]
+      ],
+      "source": "a measured discharge curve of the Case B cell (after task 0.3)",
+      "assumed_basis": "a generic single-cell Li-Po open-circuit table (millivolts, percent)",
+      "verified": null
+    }
+  },
+  "power_states": [
+    {
+      "id": "active",
+      "what": "Running with the backlight on and Wi-Fi connected",
+      "current_ma": { "value": null, "source": "task 0.3 (10 min average at USB 5 V, battery disconnected)", "verified": null }
+    },
+    {
+      "id": "display_off",
+      "what": "Backlight off, Wi-Fi connected and idle",
+      "current_ma": { "value": null, "source": "task 0.3 (10 min average at USB 5 V, battery disconnected)", "verified": null }
+    },
+    {
+      "id": "light_sleep",
+      "what": "Light sleep with modem power save, woken by BOOT or PWR",
+      "current_ma": { "value": null, "source": "task 0.3 (10 min average at USB 5 V, battery disconnected)", "verified": null }
+    },
+    {
+      "id": "off",
+      "what": "Power hold released on battery; the board is off",
+      "current_ma": { "value": null, "source": "not measured", "verified": null }
+    },
+    {
+      "id": "download",
+      "what": "ROM download mode (BOOT held through a reset); the product does not run",
+      "current_ma": { "value": null, "source": "not measured", "verified": null }
+    }
+  ],
+  "audio": {
+    "dac": "ES8311",
+    "adc": "ES7210",
+    "mics": 2,
+    "speaker": "MX1.25 speaker header (a buyer review says a speaker is included)",
+    "codec": {
+      "chip": "ES8311",
+      "i2c_addr": "0x18",
+      "i2s_pins": { "mclk": 7, "bclk": 15, "ws": 46, "dout": 45 },
+      "source": "task 0.3, spikes/hw: the I2S pins from the schematic and Waveshare's codec configuration (facts only); the bus scan found the codec at 0x18, and the tones played through these pins were heard (owner)",
+      "verified": "2026-10-18"
+    },
+    "source": "Waveshare wiki (facts only)",
+    "verified": "2026-10-11",
+    "amp_enable": { "value": "TCA9554 P7, output, high = amplifier on", "source": "task 0.3: the schematic names P7 NS_MODE, the NS4150B amplifier's control pin (pulled down); Waveshare's demos set it high before playing. Confirmed by sound in spikes/hw: a tone with P7 high was heard, the same tone with P7 low wasn't.", "verified": "2026-10-18" },
+    "speaker_connected": { "value": true, "source": "task 0.3, spikes/hw: tones through the ES8311 and NS4150B were heard (owner)", "verified": "2026-10-18" }
+  },
+  "rtc": { "chip": "PCF85063", "i2c_addr": "0x51", "source": "Waveshare wiki (facts only)", "verified": "2026-10-11" },
+  "imu": { "chip": "QMI8658", "i2c_addr": "0x6B", "source": "Waveshare wiki (facts only)", "verified": "2026-10-11" },
+  "wifi": {
+    "bands_ghz": [2.4],
+    "note": "The ESP32-S3 has no 5 GHz radio. A phone hotspot must offer 2.4 GHz (iPhone: Maximize Compatibility).",
+    "source": "Espressif ESP32-S3 datasheet",
+    "verified": "2026-10-11"
+  },
+  "kit": {
+    "backlight_default_pct": 80,
+    "button_debounce_ms": 10,
+    "power_off_usb_check_ms": 1000,
+    "wifi_max_networks": 4,
+    "wifi_scan_interval_s": 60,
+    "audio_sample_rate_hz": 16000,
+    "emulator_battery_mv": 3900,
+    "source": "lcd349-kit design.md (kit behaviour, not a board fact)",
+    "verified": "2026-10-12"
+  },
+  "budgets": {
+    "psram_kb": { "value": 8192, "source": "board.psram_mb", "verified": "2026-10-11" },
+    "internal_ram_kb": { "value": 71, "source": "phase 1 task 10.3: the full board run of test_apps/board (go run ./tools/boardtest), the free internal heap after lcd349_init with every subsystem up, Wi-Fi included: 72,907 bytes on each of its four boots (heap_caps_get_free_size(MALLOC_CAP_INTERNAL)); the largest free block was 31,744 bytes", "verified": "2026-10-23" },
+    "lvgl_mem_kb": { "value": 64, "source": "phase 1 task 10.3: LVGL 9.6.0's built-in heap in the board build, CONFIG_LV_MEM_SIZE=65536 bytes (LVGL's Kconfig default, which the kit and the examples keep) in test_apps/board's and examples/inputs' esp32s3 sdkconfig", "verified": "2026-10-23" }
+  },
+  "fidelity_not_modelled": [
+    { "id": "cpu-timing", "what": "CPU speed and cycle timing", "check_on_hardware": "Time heavy work (parsing, crypto, big redraws) on the board; the emulator runs at host speed." },
+    { "id": "psram-bandwidth", "what": "Cache and PSRAM bandwidth", "check_on_hardware": "Check frame rates and large copies on the board." },
+    { "id": "radio", "what": "Radio behaviour (range, interference, roaming, real signal strength)", "check_on_hardware": "Join your real networks, including a 2.4 GHz phone hotspot, and walk out of range." },
+    { "id": "brown-out", "what": "Brown-outs and supply dips", "check_on_hardware": "Run on a low battery with Wi-Fi and audio active." },
+    { "id": "flash-wear", "what": "Flash wear and NVS write limits", "check_on_hardware": "Count storage writes per hour; avoid writing on every event." },
+    { "id": "audio-loudness", "what": "Speaker loudness and tone quality", "check_on_hardware": "Listen to every tone on the board, in the case." },
+    { "id": "touch-feel", "what": "Touch feel: finger size, accuracy at the edges, touch through the case", "check_on_hardware": "Use every touch target with a finger on the board, in the case." },
+    { "id": "scheduling", "what": "Task scheduling: one simulated core instead of two, host threads switched at the FreeRTOS tick, and the kit's own tasks at app_main's priority", "check_on_hardware": "Test task priorities, timing races and core pinning on the board. In the emulator, avoid malloc and printf from tasks above priority 1 that share them with lower ones: a host lock can hang the instance." },
+    { "id": "network-reachability", "what": "Network access follows the host, not the simulated Wi-Fi: sockets work even while the simulated station is disconnected", "check_on_hardware": "Check that the product waits for LCD349_WIFI_CONNECTED before connecting, and recovers when Wi-Fi drops." }
+  ],
+  "design_rules": [
+    {
+      "id": "touch-target",
+      "kind": "min_size",
+      "severity": "error",
+      "threshold": { "value": 56, "unit": "px" },
+      "why": "56 px is about 7.5 mm at 7.5 px/mm; smaller targets are missed by fingers.",
+      "fix": "Make the clickable object at least 56 x 56 px, or extend its click area; tag dense list rows \"list-row\".",
+      "exempt_tags": ["list-row"],
+      "source": "design decision from display.px_per_mm",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "font-min",
+      "kind": "min_font",
+      "severity": "error",
+      "threshold": { "value": 12, "unit": "px" },
+      "why": "12 px text is about 1.6 mm tall on this panel; smaller is unreadable at arm's length.",
+      "fix": "Use a font with a line height of at least 12 px.",
+      "exempt_tags": [],
+      "source": "design decision from display.px_per_mm",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "contrast",
+      "kind": "min_contrast",
+      "severity": "error",
+      "threshold": { "value": 4.5, "unit": "ratio" },
+      "why": "WCAG AA for normal text; small screens are read at a glance, often outdoors.",
+      "fix": "Darken the background or lighten the text until the ratio is at least 4.5:1 (checked on RGB565-quantised colours).",
+      "exempt_tags": [],
+      "source": "WCAG 2.2 success criterion 1.4.3",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "clipped-text",
+      "kind": "check",
+      "severity": "error",
+      "threshold": null,
+      "why": "Text that doesn't fit is cut off or runs outside its object.",
+      "fix": "Shorten the text, widen the object, or set a long mode (wrap, dots, or scroll).",
+      "exempt_tags": [],
+      "source": "requirement 6.2",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "missing-glyph",
+      "kind": "check",
+      "severity": "error",
+      "threshold": null,
+      "why": "Characters missing from the font render as nothing or as boxes.",
+      "fix": "Use a font that contains every character shown, or replace the characters.",
+      "exempt_tags": [],
+      "source": "requirement 6.2",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "off-screen",
+      "kind": "check",
+      "severity": "error",
+      "threshold": null,
+      "why": "Objects outside 640 x 172 are invisible on the device.",
+      "fix": "Move or resize the object to fit inside the screen.",
+      "exempt_tags": [],
+      "source": "requirement 6.2",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "overlap",
+      "kind": "check",
+      "severity": "error",
+      "threshold": null,
+      "why": "Overlapping click areas make a tap ambiguous.",
+      "fix": "Separate the clickable objects so their click areas don't intersect.",
+      "exempt_tags": [],
+      "source": "requirement 6.2",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "no-momentum",
+      "kind": "check",
+      "severity": "error",
+      "threshold": null,
+      "why": "Every frame is a full-frame flush, so kinetic scrolling judders.",
+      "fix": "Clear LV_OBJ_FLAG_SCROLL_MOMENTUM; page or step instead.",
+      "exempt_tags": [],
+      "source": "display.full_frame_only",
+      "verified": "2026-10-12"
+    },
+    {
+      "id": "gradient",
+      "kind": "check",
+      "severity": "warning",
+      "threshold": null,
+      "why": "Gradients band visibly in RGB565.",
+      "fix": "Use flat colours, or a gradient between close colours.",
+      "exempt_tags": [],
+      "source": "display.format",
+      "verified": "2026-10-12"
+    }
+  ]
+}

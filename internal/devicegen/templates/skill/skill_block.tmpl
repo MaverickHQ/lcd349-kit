@@ -1,0 +1,18 @@
+{{define "skill_block.tmpl"}}
+## The board at a glance
+
+- **Screen:** {{.D.Display.LandscapeW}} × {{.D.Display.LandscapeH}} px landscape, about {{num .D.Display.MMW}} × {{num .D.Display.MMH}} mm: **{{num .D.Display.PxPerMM}} px per mm**. {{.D.Display.Format}}, so gradients band. Full-frame refresh only: every change redraws the whole screen{{if .FlushMS}} (about {{.FlushMS}} ms a frame{{if not .FlushVerified}}, assumed{{end}}){{end}}, so animation judders.
+- **Touch:** {{.D.Touch.Points}} point (no pinch, no multi-touch), sampled every {{.TouchPeriodMS}} ms{{if not .TouchPeriodVerified}} (assumed){{end}}, only while the display is on. Touch **never** wakes the board.
+- **Buttons:** only two: {{range $i, $b := .D.Buttons.Items}}{{if $i}} and {{end}}{{$b.ID}}{{end}}. Holding BOOT through a reset enters download mode instead of the product.
+- **Wi-Fi:** {{bands .D.WiFi.BandsGHz}} only. **Power:** battery with a software power hold; states {{range $i, $s := .States}}{{if $i}}, {{end}}`{{$s.ID}}`{{end}}.
+- **Wireframe grid:** one character = 8 × 16 px, so the screen is {{div .D.Display.LandscapeW 8}} columns × {{div .D.Display.LandscapeH 16}} rows (with {{mod .D.Display.LandscapeH 16}} px to spare).
+- In code, use `LCD349_LCD_W`, `LCD349_LCD_H`, `LCD349_MM_TO_PX(mm)` and the `LCD349_RULE_*` constants from `lcd349_board.h`, never copied numbers.
+
+## Design rules (`ui_lint` checks them)
+
+| Rule | Threshold | Why |
+|---|---|---|
+{{- range .Rules}}
+| `{{.ID}}` ({{.Severity}}) | {{if .Threshold}}{{.Threshold}}{{if eq .Rule.Threshold.Unit "px"}} ≈ {{mm (deref .Rule.Threshold.Value)}} mm{{end}}{{else}}—{{end}} | {{mdcell .Why}} |
+{{- end}}
+{{end}}

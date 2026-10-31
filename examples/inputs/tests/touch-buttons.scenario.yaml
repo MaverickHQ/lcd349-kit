@@ -1,0 +1,30 @@
+# Touch samples and button gestures, each shown and logged (task 9.1).
+#   lcd349 scenario tests/touch-buttons.scenario.yaml
+name: touch-buttons
+run: { clock: "2026-10-12T09:00:00Z", battery_mv: 3900, usb: true }
+steps:
+  # The home screen once simulated Wi-Fi has given up on its test network.
+  - wait: { log: "inputs: ready" }
+  - wait: { log: "wifi disconnected", timeout_ms: 5000 }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/home.png
+  - lint: { max_errors: 0, max_warnings: 0 }
+
+  # Touch: a tap on TAP counts, a long press and a swipe land where they should.
+  - touch: { tap: [320, 88] }
+  - wait: { log: "tap count 1" }
+  - wait: { text: "TAP 1" }
+  - touch: { long_press: [100, 100], ms: 600 }
+  - wait: { log: "touch up 100 100" }
+  - touch: { swipe: { from: [80, 30], to: [560, 30] }, ms: 300 }
+  - wait: { log: "touch up 560 30" }
+
+  # Buttons: short presses, then both together.
+  - press: { button: boot, ms: 150 }
+  - wait: { log: "gesture SHORT BOOT" }
+  - press: { button: pwr, ms: 150 }
+  - wait: { log: "gesture SHORT PWR" }
+  - press: { button: boot+pwr, ms: 300 }
+  - wait: { log: "gesture CHORD_END" }
+  - wait: { idle_ms: 300 }
+  - shot: goldens/after-input.png

@@ -1,0 +1,126 @@
+/*
+ * {{.Name}}: one screen with a counter.
+ *  - Tap COUNT, or press BOOT, to count (with a short beep).
+ *  - Hold PWR for 3 s to power off (on USB the board can't, and says so).
+ * Every event is logged too, so scenarios can wait for it.
+ *
+ * Use LVGL for the UI and the lcd349 API for everything physical; then this
+ * file builds unchanged for the board and the emulator. See CLAUDE.md.
+ */
+#include <stdio.h>
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "lcd349.h"
+
+static const char *TAG = "{{.Name}}";
+
+#define COLOR_BG 0x0B1622
+#define COLOR_TEXT 0xFFFFFF
+#define COLOR_MUTED 0xB8C4D0
+#define COLOR_BUTTON 0x1565C0
+
+static QueueHandle_t s_buttons;
+static lv_obj_t *s_count_label;
+static int s_count;
+
+/* With the LVGL lock held: LVGL callbacks already have it. */
+static void count(void)
+{
+    s_count++;
+    lv_label_set_text_fmt(s_count_label, "COUNT %d", s_count);
+    lcd349_tone(880, 40, 60);
+    ESP_LOGI(TAG, "count %d", s_count);
+}
+
+static void on_tap(lv_event_t *e)
+{
+    (void)e;
+    count();
+}
+
+/* Button edges arrive on the kit's event task: hand them to app_main. */
+static void on_button(const lcd349_btn_event_t *ev, void *ctx)
+{
+    (void)ctx;
+    xQueueSend(s_buttons, ev, 0);
+}
+
+static lv_obj_t *label(lv_obj_t *parent, const char *text, const lv_font_t *font, uint32_t color)
+{
+    lv_obj_t *l = lv_label_create(parent);
+    lv_obj_set_style_text_font(l, font, 0);
+    lv_obj_set_style_text_color(l, lv_color_hex(color), 0);
+    lv_label_set_text(l, text);
+    return l;
+}
+
+static void build_ui(void)
+{
+    lcd349_ui_lock();
+    lv_obj_t *scr = lv_screen_active();
+    lv_obj_set_style_bg_color(scr, lv_color_hex(COLOR_BG), 0);
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+    lv_obj_set_scrollable(scr, false);
+
+    lv_obj_t *title = label(scr, "Hello from lcd349", &lv_font_montserrat_20, COLOR_TEXT);
+    lv_obj_align(title, LV_ALIGN_LEFT_MID, 24, -24);
+    lv_obj_t *hint = label(scr, "Tap COUNT or press BOOT", &lv_font_montserrat_14, COLOR_MUTED);
+    lv_obj_align(hint, LV_ALIGN_LEFT_MID, 24, 14);
+
+    /* A target well above the 56 px minimum (about 7.5 mm on this panel). */
+    lv_obj_t *btn = lv_button_create(scr);
+    lv_obj_set_size(btn, 200, 96);
+    lv_obj_align(btn, LV_ALIGN_RIGHT_MID, -24, 0);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(COLOR_BUTTON), 0);
+    /* No press animation: every frame is a full-panel flush on this board.
+     * (A NULL transition crashes LVGL 9.6; use a zero-length one.) */
+    static const lv_style_prop_t no_props[] = {LV_STYLE_PROP_INV};
+    static lv_style_transition_dsc_t no_transition;
+    lv_style_transition_dsc_init(&no_transition, no_props, lv_anim_path_linear, 0, 0, NULL);
+    lv_obj_set_style_transition(btn, &no_transition, LV_STATE_DEFAULT);
+    lv_obj_set_style_transition(btn, &no_transition, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(btn, on_tap, LV_EVENT_CLICKED, NULL);
+    s_count_label = label(btn, "COUNT 0", &lv_font_montserrat_20, COLOR_TEXT);
+    lv_obj_center(s_count_label);
+    lcd349_ui_unlock();
+}
+
+void app_main(void)
+{
+    s_buttons = xQueueCreate(8, sizeof(lcd349_btn_event_t));
+    lcd349_err_t err = lcd349_init(NULL);
+    ESP_LOGI(TAG, "lcd349_init: %s, status 0x%03x", lcd349_err_str(err), (unsigned)lcd349_board_status());
+    if (!lcd349_display()) {
+        return;
+    }
+    build_ui();
+    lcd349_buttons_subscribe(on_button, NULL);
+
+    lcd349_classifier_t cls;
+    lcd349_classifier_cfg_t cfg = {.hold_ms = {3000}, .chord_window_ms = 150};
+    lcd349_classifier_init(&cls, &cfg);
+    ESP_LOGI(TAG, "ready");
+
+    for (;;) {
+        lcd349_gesture_t g[LCD349_CLASSIFIER_MAX_OUT];
+        size_t n;
+        lcd349_btn_event_t ev;
+        if (xQueueReceive(s_buttons, &ev, pdMS_TO_TICKS(20)) == pdTRUE) {
+            n = lcd349_classifier_feed(&cls, &ev, g, LCD349_CLASSIFIER_MAX_OUT);
+        } else {
+            n = lcd349_classifier_tick(&cls, lcd349_time_ms(), g, LCD349_CLASSIFIER_MAX_OUT);
+        }
+        for (size_t i = 0; i < n; i++) {
+            if (g[i].kind == LCD349_GESTURE_SHORT && g[i].btn == LCD349_BTN_BOOT) {
+                lcd349_ui_lock();
+                count();
+                lcd349_ui_unlock();
+            } else if (g[i].kind == LCD349_GESTURE_HOLD && g[i].btn == LCD349_BTN_PWR) {
+                ESP_LOGI(TAG, "power off requested");
+                ESP_LOGI(TAG, "power_off: %s", lcd349_err_str(lcd349_power_off()));
+            }
+        }
+    }
+}

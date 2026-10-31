@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in the kit doesn't do what its docs say
+labels: [bug]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - The emulator or the viewer
+        - The emulator differs from the board
+        - The CLI (lcd349)
+        - The Claude Code plugin or the MCP server
+        - The SDK on the board
+        - The docs
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected and what happened, with the output.
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: lcd349 version and lcd349 doctor
+      description: Paste both commands' output.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: On the board
+      description: If it happened on the board, its revision and your ESP-IDF version.
