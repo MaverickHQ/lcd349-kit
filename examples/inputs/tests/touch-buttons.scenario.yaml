@@ -3,9 +3,11 @@
 name: touch-buttons
 run: { clock: "2026-10-12T09:00:00Z", battery_mv: 3900, usb: true }
 steps:
-  # The home screen once simulated Wi-Fi has given up on its test network.
+  # The home screen once simulated Wi-Fi has given up on its test network and
+  # the status line (redrawn once a second) shows it.
   - wait: { log: "inputs: ready" }
   - wait: { log: "wifi disconnected", timeout_ms: 5000 }
+  - wait: { text: "wifi disconnected", timeout_ms: 3000 }
   - wait: { idle_ms: 300 }
   - shot: goldens/home.png
   - lint: { max_errors: 0, max_warnings: 0 }

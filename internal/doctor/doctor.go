@@ -160,8 +160,14 @@ func checkHostTools(idf *build.IDF) []Check {
 	}
 	if runtime.GOOS == "linux" {
 		c := Check{Name: "libbsd (linux target)"}
+		// Debian and Ubuntu's libbsd-dev (Ubuntu 24.04's included) puts the
+		// headers in the multiarch folder, /usr/include/<triplet>/bsd/.
+		found, _ := filepath.Glob("/usr/include/*/bsd/string.h")
 		if _, err := os.Stat("/usr/include/bsd/string.h"); err == nil {
-			c.Status, c.Detail = OK, "/usr/include/bsd/string.h"
+			found = append([]string{"/usr/include/bsd/string.h"}, found...)
+		}
+		if len(found) > 0 {
+			c.Status, c.Detail = OK, found[0]
 		} else {
 			c.Status, c.Detail, c.Fix = Fail, "the linux target needs libbsd's headers", "apt install libbsd-dev"
 		}

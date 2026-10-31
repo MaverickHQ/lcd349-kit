@@ -234,7 +234,9 @@ func closed(err error) bool {
 }
 
 // readOnly methods are safe to ask again when the product went away mid-call.
-var readOnly = map[string]bool{"state.get": true, "screenshot": true, "ui.tree": true, "ui.lint": true, "info": true}
+// A wait is too: asked again of the stand-in for a device that powered off, it
+// searches the last boot's lines.
+var readOnly = map[string]bool{"state.get": true, "screenshot": true, "ui.tree": true, "ui.lint": true, "info": true, "wait": true}
 
 func (r *runner) stopInstance() {
 	if r.conn != nil {
@@ -265,16 +267,23 @@ func (r *runner) call(timeout time.Duration, method string, params, result any) 
 	err := r.conn.Call(ctx, method, params, result)
 	if err != nil && closed(err) {
 		// The product went away mid-request: it powered off, reset or crashed.
-		// Follow it. A request that changes nothing is asked again; an input
-		// evidently took effect (a PWR hold that powers off ends the process
-		// before the press is answered), unless the product crashed.
+		// Follow it. A request it never read is sent again: a write into its
+		// closed socket, or a reset because it closed with the request unread
+		// (Linux, a PWR press just after the product reported itself off). So is
+		// a request that changes nothing. An input it read evidently took effect
+		// (a PWR hold that powers off ends the process before the press is
+		// answered), unless the product crashed.
+		unread := !errors.Is(err, io.EOF)
 		if serr := r.settle(); serr != nil {
 			return fmt.Errorf("the instance closed the connection and didn't come back: %v", serr)
 		}
 		if in, _ := instance.Read(r.in.Dir); in != nil && in.State == instance.StateCrashed {
 			return fmt.Errorf("the product crashed during %s; its last lines are in lcd349 logs %s", method, r.in.ID)
 		}
-		if readOnly[method] {
+		if readOnly[method] || unread {
+			if m, ok := params.(map[string]any); ok && method == "wait" && m["log"] != nil {
+				m["since"] = 1 // a new boot's lines from its start, as after any reconnect
+			}
 			return r.conn.Call(ctx, method, params, result)
 		}
 		return nil
@@ -291,16 +300,13 @@ func (r *runner) step(st Step, sr *StepResult) error {
 		if err != nil {
 			return err
 		}
-		in, err := instance.Read(r.in.Dir)
-		if err != nil {
-			return err
-		}
-		wasOff := in.State == instance.StateOff
 		var res map[string]any
 		if err := r.call(time.Duration(st.Press.MS)*time.Millisecond+10*time.Second, "input.press", p, &res); err != nil {
 			return err
 		}
-		if wasOff && res["powered_on"] == true {
+		// Only the stand-in for a device that's off answers powered_on, whether
+		// the device was off before the press or went off just as it was sent.
+		if res["powered_on"] == true {
 			return r.settle()
 		}
 		return nil

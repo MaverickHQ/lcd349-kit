@@ -22,9 +22,12 @@ func kitProject(t *testing.T) string {
 	return dir
 }
 
-// The inputs screen settles once the simulated Wi-Fi has given up (about 1 s).
+// The inputs screen settles once the simulated Wi-Fi has given up (about 1 s)
+// and the status line, which inputs redraws once a second, says so: the log
+// line alone comes up to a second before the screen shows it.
 const settle = `
   - wait: { log: "wifi disconnected", timeout_ms: 5000 }
+  - wait: { text: "wifi disconnected", timeout_ms: 3000 }
   - wait: { idle_ms: 200 }`
 
 const passing = `name: inputs-tour
@@ -73,7 +76,7 @@ func TestScenarioGoldens(t *testing.T) {
 	}
 	// 2. Now it passes, every step, through a reset.
 	out, _, code = c.run("scenario", file, "--elf", elf)
-	if code != 0 || !strings.Contains(out, "passed: 13 steps") {
+	if code != 0 || !strings.Contains(out, "passed: 14 steps") {
 		t.Fatalf("passing scenario: exit %d\n%s", code, out)
 	}
 	// 3. One changed pixel fails, with actual and diff images beside the golden.
@@ -92,7 +95,7 @@ func TestScenarioGoldens(t *testing.T) {
 	out, _, code = c.run("scenario", file, "--elf", elf)
 	diff := filepath.Join(dir, "tests", "goldens", "home_diff.png")
 	actual := filepath.Join(dir, "tests", "goldens", "home_actual.png")
-	if code != 1 || !strings.Contains(out, "1 pixels differ") || !strings.Contains(out, diff) || !strings.Contains(out, "FAILED at step 4") {
+	if code != 1 || !strings.Contains(out, "1 pixels differ") || !strings.Contains(out, diff) || !strings.Contains(out, "FAILED at step 5") {
 		t.Fatalf("changed pixel: exit %d\n%s", code, out)
 	}
 	for _, p := range []string{diff, actual} {
@@ -113,7 +116,7 @@ func TestScenarioGoldens(t *testing.T) {
 	// A relative path from outside the project finds the same goldens.
 	cmd := c.cmd("scenario", filepath.Join(filepath.Base(dir), "tests", "tour.scenario.yaml"), "--elf", elf)
 	cmd.Dir = filepath.Dir(dir)
-	if b, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(b), "passed: 13 steps") {
+	if b, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(b), "passed: 14 steps") {
 		t.Fatalf("relative path from the parent: %v\n%s", err, b)
 	}
 	if _, err := os.Stat(filepath.Join(dir, filepath.Base(dir))); !os.IsNotExist(err) {

@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // The test binary plays both parts: with SOAK_TEST_MAIN=1 it is the soak
@@ -55,8 +57,8 @@ func TestDetachReturnsWhileTheSoakRuns(t *testing.T) {
 	if err := syscall.Kill(pid, 0); err != nil {
 		t.Fatalf("the soak (pid %d) isn't running after -detach returned: %v", pid, err)
 	}
-	mine, _ := syscall.Getsid(0)
-	its, err := syscall.Getsid(pid)
+	mine, _ := unix.Getsid(0)
+	its, err := unix.Getsid(pid)
 	if err != nil || its == mine {
 		t.Errorf("the soak's session is %d (%v), the caller's %d: it must have its own", its, err, mine)
 	}

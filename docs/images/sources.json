@@ -5,7 +5,7 @@
   "examples/gallery/tests/goldens/setup.png": "246a1eaa762e7610e1cc0348f0795781678c043f9174280aab102f79b5045369",
   "examples/gallery/tests/goldens/tiles.png": "5ed38dfdb00d2e17bdab671b3332484e5d2534bdcbc2f78629d31879e36680aa",
   "examples/gallery/tests/goldens/toast.png": "5d75dc76deeae9e6a6342f2744981e16aad4b60df8dbdbff29c56e28bd189983",
-  "examples/inputs/tests/goldens/home.png": "3108a6f67ea47985b850f3d09409901ac1652b113de904f54b0dc024f365300d",
+  "examples/inputs/tests/goldens/home.png": "773253d49ec31683b1138e8d3f101de49bc9528aa8eacc464825b1c186644d02",
   "examples/inputs/tests/goldens/wifi-connected.png": "ff6e1b46bce2b80b5f10e7a1ec49ccdefad7fc8a2138ab3800a75496d3390d37",
   "templates/app/tests/goldens/home.png": "f9574b21adc2f26bc6bcff5e2581f4973a7e62d92b419b44c54f1090bbb56b9c"
 }

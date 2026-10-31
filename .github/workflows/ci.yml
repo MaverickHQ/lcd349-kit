@@ -28,6 +28,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The steps run as root, but the checkout belongs to the runner's user, so
+      # git refuses it ("dubious ownership"); go build's VCS stamping and
+      # ESP-IDF's version lookup run git in it, and the release-candidate test
+      # fetches from its .git.
+      - name: Trust the checkout
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/.git"
       - name: linux target prerequisites
         if: matrix.check != 'build-esp32s3'
         run: |
@@ -132,7 +140,7 @@ jobs:
 
   macos:
     name: macOS arm64 (Go and viewer, KN5)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

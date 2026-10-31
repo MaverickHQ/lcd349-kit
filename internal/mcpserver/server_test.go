@@ -409,6 +409,7 @@ func TestRunScenario(t *testing.T) {
 	os.MkdirAll(filepath.Join(proj, "tests"), 0o755)
 	os.WriteFile(filepath.Join(proj, "tests", "home.scenario.yaml"), []byte(`steps:
   - wait: { log: "wifi disconnected", timeout_ms: 5000 }
+  - wait: { text: "wifi disconnected", timeout_ms: 3000 }
   - wait: { idle_ms: 200 }
   - shot: goldens/home.png
   - lint:
@@ -425,7 +426,7 @@ func TestRunScenario(t *testing.T) {
 		} `json:"steps"`
 	}
 	decode(t, s.call("run_scenario", args, false), &r)
-	if !r.OK || len(r.Steps) != 4 {
+	if !r.OK || len(r.Steps) != 5 {
 		t.Fatalf("second run: %+v", r)
 	}
 	// Change the golden: the failure shows the actual screen and the diff.
