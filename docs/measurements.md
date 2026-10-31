@@ -10,7 +10,7 @@ The kit's speed and stability budgets (requirements §Non-functional), measured 
 | **KN1** input to next frame ≤ 200 ms | a tap: 36 ms median, 42 ms max; a button press: 15 ms median, 128 ms max | PASS |
 | **KN1** incremental emulator build ≤ 20 s | 0.96 s median, 1.9 s max | PASS |
 | **KN2** instance start to first frame ≤ 3 s | 86 ms median, 530 ms max (the first, cold start) | PASS |
-| **KN7** all examples' scenarios in CI ≤ 5 min | not measured: CI hasn't run yet. Locally the four example scenarios take 23 s | pending |
+| **KN7** all examples' scenarios in CI ≤ 5 min | on GitHub's Linux runner, in the pinned ESP-IDF v5.5.5 container (CI run 41237903930, 2026-10-31): the scenarios step took 25 s, and `TestExampleScenarios` itself 23.3 s (`gallery` 10.2 s, `hello` 1.1 s, `power-wifi` 8.0 s, `touch-buttons` 3.4 s) | PASS |
 | **KN9** 8 hours, no crash, < 10 % memory growth | the 8-hour rerun (2026-10-23, after the first run's three faults were fixed, below): 8 h 0 m with no crash or hang, 50,015 rounds. The product's resident memory grew 4.5 % (6,368 KB median in the hour after the warm-up, 6,656 KB in the last hour); the supervisor's fell 18.4 % | PASS |
 
 ## How
@@ -21,6 +21,8 @@ The kit's speed and stability budgets (requirements §Non-functional), measured 
 - **Screenshots (20 runs each):** as an MCP tool call does it (connect, read the board's facts, take the screenshot), and as `lcd349 shot` does it, timed from starting the process to the PNG on disk.
 - **Input to next frame (20 runs each):** on `examples/hello`, which draws only in answer to input, so the next frame is the input's. The time runs from sending the request to the framebuffer's frame counter moving: for a tap, the touch-down label; for a press, the button-down label, after the 10 ms debounce. The one slow press (128 ms) is an outlier the other 19 (13-20 ms) don't share.
 - **Incremental build (20 runs):** touches `examples/inputs/main/main.c` and runs the emulator build, which recompiles that file and relinks. The first build of a new project, which compiles LVGL, takes about 100 s and isn't part of this budget.
+
+**KN7:** CI's Linux `go` check runs every example's scenarios headless, in a step of its own (`go test ./internal/clitest/ -run '^TestExampleScenarios$' -v`) with a 5-minute limit, so a run over budget fails. The step's time also covers sourcing ESP-IDF's environment and building the test binary, so the limit is slightly stricter than KN7; the test's own time is in its `-v` output.
 
 **KN9:** `go run ./tools/soak -duration 8h`, on one instance of `examples/inputs`. Each round taps, waits for the log line, presses BOOT, swipes, takes a screenshot, reads the UI tree, lints, and changes the battery voltage. Every 25th round opens a new connection, every 50th changes the Wi-Fi networks in range, and every 60th sleeps and wakes the board. It samples the product's and the supervisor's resident memory every minute into `samples.csv`. Resident memory on macOS jitters by a megabyte or more between samples at this size, so growth compares medians: the hour after a 10-minute warm-up against the last hour. It stops early, and fails, on any crash or hang.
 

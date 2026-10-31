@@ -2,6 +2,47 @@
 
 All notable changes to lcd349-kit are listed here. The SDK follows semantic versioning. Before 1.0, a breaking change to a public header bumps the minor version and is listed under **Breaking** (requirement 1.8).
 
+## v0.2.0 (2026-10-31)
+
+The first published version. The repository is public at `github.com/MaverickHQ/lcd349-kit`, CI builds the release binaries, and the Claude Code plugin installs from the repository's marketplace. The SDK is v0.1.0's: no public header changed but the version macros, so nothing breaks. The minor version moves because the published tree isn't the same as the local v0.1.0 tag.
+
+### Added
+- **The release, built by CI on a tag** (`.github/workflows/release.yml`): `lcd349` and `lcd349-view` for macOS arm64 and Linux x86_64, `SHA256SUMS`, a build attestation for each binary (check one with `gh attestation verify`), and the GitHub release. The plugin's launcher downloads `lcd349` and runs it only if its SHA-256 matches `plugin/scripts/checksums.txt`, which holds the release's `lcd349` lines.
+- **CI on every push and pull request** (`.github/workflows/ci.yml`):
+  - on Linux, in the pinned ESP-IDF v5.5.5 container: the host tests, `go vet`, the Go tests with ESP-IDF, the viewer, the examples and the template required, `devicegen --check`, every example's scenarios headless (KN7: 25 s, against 5 minutes), and the build checks for both targets;
+  - on macOS arm64: the viewer and the Go tests (KN5);
+  - the plugin's manifests (`claude plugin validate`).
+
+  Every action is pinned by its commit SHA and every tool to an exact version. Dependabot watches the actions and the Go modules.
+- `lcd349 new <dir>`, with no `--kit-path`, pins this release by its git URL and tag.
+- `lcd349` finds the viewer under the release's name, `lcd349-view_<version>_<os>_<arch>`, beside it, as well as `lcd349-view`.
+- `tools/publish/export`, which makes each public commit's tree:
+  - it copies only the paths an allowlist names;
+  - it refuses a tree that holds a value from a private denylist, a home-folder path or a gitleaks finding, naming the file and the line but never the value;
+  - it runs a valvur scan and prints the diff against the public clone. It never commits or pushes.
+- The README, rewritten for the published kit, with art drawn from the scenario goldens (`tools/media/art.py`). A repository test fails when a golden changes and the art isn't redrawn.
+- `SECURITY.md`, `CONTRIBUTING.md` (issues are welcome; pull requests aren't taken yet) and issue forms.
+- A guard: the component compiles with `-Werror=frame-larger-than=20480`, so no function of the kit's can put more than 20 KB on a task's stack.
+
+### Fixed
+- **The emulator overflowed its main task's stack on every boot after the first.** Loading storage put a 64 KB buffer on the stack (`kv_file.c`), and loading the device model 8 KB (`devmodel.c`). On a Mac the overflow silently overwrote heap memory; on GitHub's Linux runners the instance crashed. Both buffers are on the heap now.
+- **`lcd349 scenario` could lose a request while the product powered off.** A `wait` that reached the exiting product came back empty, and a PWR press the product never read counted as done, so the board stayed off. A `wait` is now asked again once the runner follows the product, and a request it never read is sent again.
+- `lcd349 doctor` finds libbsd's headers in Debian and Ubuntu's multiarch folder (`/usr/include/<triplet>/bsd/`), where Ubuntu 24.04 puts them.
+- `examples/inputs`' scenarios, and the CLI's and MCP server's tests, wait for the Wi-Fi status text on the screen, not only in the log: the status line redraws once a second, so a screenshot just after the log line could still show "wifi scanning". The `inputs` golden is re-recorded.
+- `test_apps/build_check` uses the large app partition, as the examples and the template do: with Wi-Fi, the kit doesn't fit the default 1 MB.
+- `tools/soak` builds on Linux.
+- The SSH key in a CLI test fixture is one generated for the test.
+
+### Changed
+- Go 1.26.10 (the `toolchain` line in `go.mod`, which CI and the release use), and `golang.org/x/sys` v0.44.0 (CVE-2026-39824).
+- The version strings say `0.2.0`: `LCD349_VERSION_STR` and `LCD349_VERSION_MAJOR`/`MINOR`/`PATCH`, `lcd349 version`, the plugin's manifest and launcher, `idf_component.yml` and `lcd349-view --version`.
+- The docs describe the published version: installing and verifying the release, the plugin's install forms, and building `lcd349` from source where there's no release binary.
+
+### Known problems
+- v0.1.0's known problems (below) all still stand. Light sleep is experimental, the board restarted unasked during the checkpoint, the clock stops at a power off on battery, touch may read below the finger, and the screen's size and the current draw aren't measured. The kit's power phase (phase 3) owns most of them.
+- Release binaries exist only for macOS arm64 and Linux x86_64. On an Intel Mac or Linux on arm64, build `lcd349` from a checkout of this tag and put it on PATH.
+- The Linux `lcd349-view` links the system's SDL2, so it needs SDL2 installed, and it's built on Ubuntu 24.04, so it needs glibc 2.39 or later. The macOS one is built on GitHub's macOS 15 image with no lower minimum set, so it may not run on older macOS versions.
+
 ## v0.1.0 (2026-10-23)
 
 The first version that runs on the board. It's a local tag for herdr-pager to pin, not a release: nothing is published.

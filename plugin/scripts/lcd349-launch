@@ -12,7 +12,7 @@
 # LCD349_RELEASE_BASE overrides the download location (tests only).
 set -eu
 
-VERSION="0.1.0-dev"
+VERSION="0.2.0"
 DEFAULT_BASE="https://github.com/MaverickHQ/lcd349-kit/releases/download/v$VERSION"
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)

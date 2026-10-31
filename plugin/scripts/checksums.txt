@@ -1,3 +1,5 @@
 # SHA-256 of each lcd349 release binary, as <hash>  lcd349_<version>_<os>_<arch>.
-# The release (task 10.5) writes it in the same commit as the version. A
-# development plugin has no entries: the launcher then needs lcd349 on PATH.
+# The lines come from a dry run of .github/workflows/release.yml on the commit
+# with the new version, and go in the commit that is tagged; the tag's run
+# publishes only if its binaries match them. Until then the plugin has no
+# entries, and the launcher needs lcd349 on PATH.
