@@ -2,7 +2,7 @@ dependencies:
   lcd349:
 {{- if .KitPath}}
     # A local kit checkout (lcd349 new --kit-path). Pin a release for anything you share.
-    override_path: "{{.KitPath}}"
+    override_path: {{.KitPath}}
 {{- else}}
     git: {{.RepoURL}}
     path: components/lcd349

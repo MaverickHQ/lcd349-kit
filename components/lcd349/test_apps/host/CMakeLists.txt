@@ -7,4 +7,10 @@ set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../..")
 set(COMPONENTS main)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 idf_build_set_property(DEPENDENCIES_LOCK dependencies.lock.${IDF_TARGET})
+# Unity's TEST_PROTECT and TEST_ABORT are setjmp and longjmp, which on macOS
+# save and restore the signal mask: a failing test's longjmp then breaks the
+# SIGALRM tick of the linux target's FreeRTOS, and the run hangs or crashes
+# instead of reporting the failure. _setjmp and _longjmp leave the mask alone.
+idf_build_set_property(COMPILE_OPTIONS "-DUNITY_TEST_PROTECT()=(_setjmp(Unity.AbortFrame)==0)" APPEND)
+idf_build_set_property(COMPILE_OPTIONS "-DUNITY_TEST_ABORT()=_longjmp(Unity.AbortFrame,1)" APPEND)
 project(lcd349_host_test)

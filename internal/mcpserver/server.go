@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -195,11 +196,16 @@ func (s *Server) inRoot(p string) (string, error) {
 	return resolved, nil
 }
 
-// pick resolves an instance argument: an id or directory, or empty for the
-// only running instance.
-func pick(ref string) (*instance.Info, error) {
+// pick resolves an instance argument: an id, an instance directory in the
+// instance roots (relative paths resolve against the workspace), or empty
+// for the only running instance. instance.Find refuses any other
+// directory, whatever it holds, so stop can't remove it.
+func (s *Server) pick(ref string) (*instance.Info, error) {
 	if ref == "" {
 		return instance.Only()
+	}
+	if strings.ContainsRune(ref, '/') || ref == "." || ref == ".." {
+		ref = s.abs(ref)
 	}
 	dir, err := instance.Find(ref)
 	if err != nil {

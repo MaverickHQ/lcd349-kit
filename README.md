@@ -6,7 +6,7 @@
 
 An SDK, an emulator and a Claude Code plugin for the [Waveshare ESP32-S3-Touch-LCD-3.49](docs/hardware.md), a long, thin touch bar with two buttons, a speaker and a battery. Write a product once in ESP-IDF C with LVGL 9. Build it for the board, and for an emulator that runs the same code on your computer. Then drive it the same way, whether you're a person at the window, a script in CI or an agent in Claude Code.
 
-[Status](#status) · [See it](#see-it) · [How it works](#how-it-works) · [Claude Code](#claude-code) · [Quick start](#quick-start-for-people) · [What it doesn't model](#what-the-emulator-doesnt-model) · [Docs](#documentation) · [Develop](#develop)
+[Status](#status) · [See it](#see-it) · [How it works](#how-it-works) · [Claude Code](#claude-code) · [Quick start](#quick-start-for-people) · [What it doesn't model](#what-the-emulator-doesnt-model) · [Planned](#planned) · [Docs](#documentation) · [Develop](#develop)
 
 </div>
 
@@ -131,7 +131,7 @@ Things to ask it:
 Install `lcd349` from the release (macOS on Apple Silicon shown; on Linux x86_64 use `linux_amd64`):
 
 ```
-V=0.2.0; A=darwin_arm64
+V=0.2.1; A=darwin_arm64
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/lcd349_${V}_$A
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/SHA256SUMS
 shasum -a 256 -c --ignore-missing SHA256SUMS
@@ -176,6 +176,17 @@ The emulator runs your unchanged product on the board's 640 × 172 screen (about
 
 Some board facts aren't measured yet (6, listed in [docs/hardware.md](docs/hardware.md)); until they are, the emulator uses a stand-in for each or doesn't model it.
 <!-- END GENERATED -->
+
+## Planned
+
+The kit doesn't cover all of the board yet. Still to come, in the SDK and the emulator:
+
+- motion, from the QMI8658 IMU;
+- the two microphones;
+- the TF card;
+- Bluetooth LE;
+- USB device mode on the Type-C port;
+- the external antenna.
 
 ## Documentation
 

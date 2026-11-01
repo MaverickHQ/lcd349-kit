@@ -60,9 +60,10 @@ func TestParseIsStrict(t *testing.T) {
 		"steps:\n  - wait: { timeout_ms: 100 }\n":                  "log, text or idle_ms",
 		"steps:\n  - power: sleep\n":                               "on, off, reset or download",
 		"steps:\n  - state: {}\n":                                  "set or expect",
-		"run: { clok: x }\nsteps:\n  - lint:\n":                    "clok",
-		"name: x\n":                                                "no steps",
-		"steps:\n  - { wait: { idle_ms: 1 }, lint: {} }\n":         "a step is one of",
+		"steps:\n  - state: { set: { x: " + strings.Repeat("[", 20) + strings.Repeat("]", 20) + " } }\n": "nests",
+		"run: { clok: x }\nsteps:\n  - lint:\n":                                                          "clok",
+		"name: x\n":                                                                                      "no steps",
+		"steps:\n  - { wait: { idle_ms: 1 }, lint: {} }\n":                                               "a step is one of",
 	} {
 		_, err := Parse([]byte(doc))
 		if err == nil || !strings.Contains(err.Error(), want) {

@@ -246,7 +246,7 @@ func (s *Server) run(ctx context.Context, _ *mcp.CallToolRequest, in runIn) (*mc
 }
 
 func (s *Server) stop(ctx context.Context, _ *mcp.CallToolRequest, in instanceIn) (*mcp.CallToolResult, any, error) {
-	info, err := pick(in.Instance)
+	info, err := s.pick(in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -258,8 +258,8 @@ func (s *Server) stop(ctx context.Context, _ *mcp.CallToolRequest, in instanceIn
 }
 
 // conn connects to an instance for one tool call.
-func conn(ctx context.Context, ref string) (*drive.Conn, error) {
-	info, err := pick(ref)
+func (s *Server) conn(ctx context.Context, ref string) (*drive.Conn, error) {
+	info, err := s.pick(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func conn(ctx context.Context, ref string) (*drive.Conn, error) {
 
 // callJSON makes one request and returns its result as JSON text.
 func (s *Server) callJSON(ctx context.Context, ref, method string, params any, mark bool) (*mcp.CallToolResult, any, error) {
-	d, err := conn(ctx, ref)
+	d, err := s.conn(ctx, ref)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -300,7 +300,7 @@ func (s *Server) touch(ctx context.Context, _ *mcp.CallToolRequest, in touchIn) 
 	if err := t.Validate(); err != nil {
 		return nil, nil, err
 	}
-	d, err := conn(ctx, in.Instance)
+	d, err := s.conn(ctx, in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -317,7 +317,7 @@ func (s *Server) touch(ctx context.Context, _ *mcp.CallToolRequest, in touchIn) 
 }
 
 func (s *Server) logs(ctx context.Context, _ *mcp.CallToolRequest, in logsIn) (*mcp.CallToolResult, any, error) {
-	info, err := pick(in.Instance)
+	info, err := s.pick(in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -383,7 +383,7 @@ func (s *Server) wait(ctx context.Context, _ *mcp.CallToolRequest, in waitIn) (*
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond+30*time.Second)
 	defer cancel()
-	d, err := conn(ctx, in.Instance)
+	d, err := s.conn(ctx, in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -422,7 +422,7 @@ func (s *Server) power(ctx context.Context, _ *mcp.CallToolRequest, in powerIn) 
 	default:
 		return nil, nil, fmt.Errorf("action is on, off, reset or download")
 	}
-	info, err := pick(in.Instance)
+	info, err := s.pick(in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}

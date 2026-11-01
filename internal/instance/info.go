@@ -3,6 +3,8 @@ package instance
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -12,6 +14,9 @@ import (
 const (
 	infoFile = "instance.json"
 	lockFile = "supervisor.lock"
+
+	// maxInfoSize caps instance.json: it holds a crash's last lines, never more.
+	maxInfoSize = 4 << 20
 )
 
 // States of an instance, in Info.State.
@@ -85,11 +90,24 @@ type Hang struct {
 	SampleError string    `json:"sample_error,omitempty"`
 }
 
-// Read loads dir/instance.json.
+// Read loads dir/instance.json, never through a symlink and never past
+// maxInfoSize.
 func Read(dir string) (*Info, error) {
-	b, err := os.ReadFile(filepath.Join(dir, infoFile))
+	path := filepath.Join(dir, infoFile)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
+	}
+	defer f.Close()
+	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s isn't a regular file", path)
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxInfoSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > maxInfoSize {
+		return nil, fmt.Errorf("%s is over %d bytes", path, maxInfoSize)
 	}
 	var in Info
 	if err := json.Unmarshal(b, &in); err != nil {

@@ -145,8 +145,16 @@ func TestTreeAndLint(t *testing.T) {
 	if sub.Tree.Path != tap.Path || sub.Count != 2 {
 		t.Fatalf("subtree = %+v", sub)
 	}
-	if err := in.try("ui.tree", map[string]any{"path": "screen/99"}, nil); !rpc.IsCode(err, rpc.CodeInvalidParams) {
-		t.Fatalf("bad path: %v", err)
+	for _, p := range []string{"screen/99", "screen/abc", "screen/0x"} {
+		if err := in.try("ui.tree", map[string]any{"path": p}, nil); !rpc.IsCode(err, rpc.CodeInvalidParams) {
+			t.Fatalf("bad path %s: %v", p, err)
+		}
+	}
+	// "/" is the screen (it crashed the instance).
+	var root rpc.Tree
+	in.call("ui.tree", map[string]any{"path": "/", "depth": 1}, &root)
+	if root.Tree.Path != "screen" {
+		t.Fatalf("path / = %+v", root.Tree)
 	}
 	var l rpc.Lint
 	in.call("ui.lint", nil, &l)
@@ -379,7 +387,7 @@ func TestProtocolErrors(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, e, err := in.client.Raw(ctx, []byte("{not json\n"))
+	res, e, err := in.client.Raw(ctx, []byte("{not json\n"))
 	if err != nil || e == nil || e.Code != rpc.CodeParse {
 		t.Fatalf("malformed: %v %+v", err, e)
 	}
@@ -398,8 +406,23 @@ func TestProtocolErrors(t *testing.T) {
 	if err != nil || e == nil || e.Code != rpc.CodeInvalidRequest {
 		t.Fatalf("oversize: %v %+v", err, e)
 	}
+	// A request nesting deeper than rpc.MaxDepth is refused before it's
+	// parsed (recursively, on the control task's stack); one at the limit
+	// is parsed and answered. Brackets in strings don't count.
+	nested := func(id, n int) []byte {
+		pad := strings.Repeat("[", n-2) + strings.Repeat("]", n-2)
+		return []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"method":"ping","params":{"pad":%s,"s":"[[[[[[[[[[[[[[[[[[[["}}`+"\n", id, pad))
+	}
+	_, e, err = in.client.Raw(ctx, nested(11, rpc.MaxDepth+1))
+	if err != nil || e == nil || e.Code != rpc.CodeInvalidRequest || !strings.Contains(e.Message, "nests") {
+		t.Fatalf("too deep: %v %+v", err, e)
+	}
+	res, e, err = in.client.Raw(ctx, nested(12, rpc.MaxDepth))
+	if err != nil || e != nil || !bytes.Contains(res, []byte("pong")) {
+		t.Fatalf("at the limit: %v %+v %s", err, e, res)
+	}
 	// A notification (no id) gets no answer: the next answer is the ping's.
-	res, e, err := in.client.Raw(ctx, []byte(`{"jsonrpc":"2.0","method":"ping"}`+"\n"+`{"jsonrpc":"2.0","id":10,"method":"ping"}`+"\n"))
+	res, e, err = in.client.Raw(ctx, []byte(`{"jsonrpc":"2.0","method":"ping"}`+"\n"+`{"jsonrpc":"2.0","id":10,"method":"ping"}`+"\n"))
 	if err != nil || e != nil || !bytes.Contains(res, []byte("pong")) {
 		t.Fatalf("after a notification: %v %+v %s", err, e, res)
 	}
@@ -535,8 +558,13 @@ func TestPressHold(t *testing.T) {
 	in.waitLog(`gesture SHORT BOOT`, 1)
 
 	// Only the holder can release; when it disconnects, the button is released.
+	// The wait looks from this press on: the hold above logged PWR down too,
+	// and matching that one let the client leave before this press was past
+	// its debounce, so it never logged PWR up (CI run 41338616154).
+	var before rpc.State
+	in.call("state.get", nil, &before)
 	in.call("input.press", map[string]any{"button": "pwr", "state": "down"}, nil)
-	in.waitLog(`button PWR down`, 1) // past the debounce: a shorter press is a bounce
+	in.waitLog(`button PWR down`, before.SerialNext) // past the debounce: a shorter press is a bounce
 	var st rpc.State
 	in.call("state.get", nil, &st)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

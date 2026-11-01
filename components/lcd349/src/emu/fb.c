@@ -38,7 +38,8 @@ bool emu_fb_open(void)
     if (dir) {
         char path[512];
         snprintf(path, sizeof path, "%s/fb.bin", dir);
-        int fd = open(path, O_RDWR | O_CREAT, 0600);
+        /* Kept across resets (the viewer maps it), but never a symlink. */
+        int fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
         if (fd >= 0 && ftruncate(fd, (off_t)FB_FILE_BYTES) == 0) {
             void *m = mmap(NULL, FB_FILE_BYTES, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
             if (m != MAP_FAILED) {

@@ -5,6 +5,7 @@ package scaffold
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -77,7 +78,13 @@ func New(o Options) ([]string, error) {
 		if _, err := os.Stat(filepath.Join(abs, "include", "lcd349.h")); err != nil {
 			return nil, fmt.Errorf("%s isn't the lcd349 component (no include/lcd349.h); give the kit's components/lcd349", abs)
 		}
-		kitPath = abs
+		// A JSON string is a YAML double-quoted scalar: quotes, backslashes
+		// and newlines in the path stay the path's.
+		q, err := json.Marshal(abs)
+		if err != nil {
+			return nil, err
+		}
+		kitPath = string(q)
 	} else if o.KitRepo == "" && !Released() {
 		return nil, fmt.Errorf("this lcd349 (%s) has no published release to pin; give --kit-path <kit checkout>/components/lcd349", lcd349kit.Version)
 	}

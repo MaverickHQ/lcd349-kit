@@ -9,10 +9,11 @@
 #    inside the plugin.
 #
 # stdout belongs to the MCP server: this script writes only to stderr.
-# LCD349_RELEASE_BASE overrides the download location (tests only).
+# LCD349_RELEASE_BASE overrides the download location, and
+# LCD349_DOWNLOAD_MAX_TIME its time limit in seconds (tests only).
 set -eu
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 DEFAULT_BASE="https://github.com/MaverickHQ/lcd349-kit/releases/download/v$VERSION"
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -54,22 +55,41 @@ sha256() {
 	fi
 }
 
+# fetch downloads $1 to $tmp, within a time limit. curl runs in the
+# background so that a TERM or INT (Claude Code ending the session) stops the
+# wait at once; the traps then stop curl and remove the partial file.
+fetch() {
+	curl -fsSL --connect-timeout 30 --max-time "${LCD349_DOWNLOAD_MAX_TIME:-600}" "$@" -o "$tmp" &
+	curl_pid=$!
+	wait "$curl_pid"
+}
+
+cleanup() {
+	if [ -n "${curl_pid:-}" ]; then
+		kill "$curl_pid" 2>/dev/null || true
+	fi
+	rm -f "$tmp"
+}
+
 if [ ! -f "$bin" ] || [ "$(sha256 "$bin")" != "$want" ]; then
 	mkdir -p "$CLAUDE_PLUGIN_DATA/bin"
 	tmp="$bin.part.$$"
-	trap 'rm -f "$tmp"' EXIT
+	trap cleanup EXIT
+	trap 'cleanup; exit 130' INT
+	trap 'cleanup; exit 143' TERM
 	if [ -n "${LCD349_RELEASE_BASE:-}" ]; then
-		curl -fsSL --proto '=https,http,file' -o "$tmp" "$LCD349_RELEASE_BASE/$asset" ||
+		fetch --proto '=https,http,file' "$LCD349_RELEASE_BASE/$asset" ||
 			die "download from $LCD349_RELEASE_BASE/$asset failed"
 	else
-		curl -fsSL --proto '=https' --tlsv1.2 -o "$tmp" "$DEFAULT_BASE/$asset" ||
+		fetch --proto '=https' --tlsv1.2 "$DEFAULT_BASE/$asset" ||
 			die "download from $DEFAULT_BASE/$asset failed"
 	fi
+	curl_pid=
 	got=$(sha256 "$tmp")
 	[ "$got" = "$want" ] || die "checksum mismatch for $asset: expected $want, got $got; refusing to run it"
 	chmod 755 "$tmp"
 	mv -f "$tmp" "$bin"
-	trap - EXIT
+	trap - EXIT INT TERM
 fi
 
 exec "$bin" "$@"

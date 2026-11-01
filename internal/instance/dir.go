@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -47,6 +48,12 @@ func Roots() []string {
 	}
 	return r
 }
+
+// EnsurePrivateDir creates dir (0700) if needed and checks that it is a
+// real directory owned by this user, closing it to others if it isn't
+// already, so another local user can't plant it (KT1). The instance roots
+// and the MCP server's recordings outside a project use it.
+func EnsurePrivateDir(dir string) error { return ensureRoot(dir) }
 
 // ensureRoot creates root (0700) if needed and checks that it is a real
 // directory owned by this user, so another local user can't plant it (KT1).
@@ -126,15 +133,87 @@ func NewID(base string) string {
 // ErrNotFound means no instance has that id or directory.
 var ErrNotFound = errors.New("no such instance")
 
+// checkDir returns path's details if it is a real directory (not a
+// symlink), owned by this user and closed to everyone else (KT1). Every
+// read of a root or an instance directory checks it, so a directory
+// another local user planted, in a shared /tmp say, is never trusted.
+func checkDir(path string) (os.FileInfo, error) {
+	st, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	sys, ok := st.Sys().(*syscall.Stat_t)
+	if !st.IsDir() || !ok || int(sys.Uid) != os.Getuid() || st.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("%s isn't a directory only you can use; remove it or set LCD349_INSTANCES", path)
+	}
+	return st, nil
+}
+
+// verifiedRoots returns the roots that pass checkDir, skipping the others,
+// and each directory once: two roots can name one ($TMPDIR is /private/tmp
+// and the fallback /tmp, say).
+func verifiedRoots() []string {
+	var out []string
+	var seen []os.FileInfo
+	for _, root := range Roots() {
+		st, err := checkDir(root)
+		if err != nil || slices.ContainsFunc(seen, func(s os.FileInfo) bool { return os.SameFile(s, st) }) {
+			continue
+		}
+		seen = append(seen, st)
+		out = append(out, root)
+	}
+	return out
+}
+
+// hasInfo reports whether dir is a verified instance directory holding a
+// regular instance.json.
+func hasInfo(dir string) bool {
+	if _, err := checkDir(dir); err != nil {
+		return false
+	}
+	st, err := os.Lstat(filepath.Join(dir, infoFile))
+	return err == nil && st.Mode().IsRegular()
+}
+
+// inRoots returns the instance directory dir names, as root/id, if dir is
+// a verified directory whose parent (symlinks evaluated) is a verified
+// root and whose name is an instance id. Anything else is refused: Stop
+// removes what this returns.
+func inRoots(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	refused := fmt.Errorf("%s: %w: not an instance directory under %s", abs, ErrNotFound, strings.Join(Roots(), " or "))
+	id := filepath.Base(abs)
+	if !ValidID(id) {
+		return "", refused
+	}
+	if _, err := checkDir(abs); err != nil {
+		return "", refused
+	}
+	parent, err := os.Stat(filepath.Dir(abs))
+	if err != nil {
+		return "", refused
+	}
+	for _, root := range verifiedRoots() {
+		if st, err := os.Lstat(root); err == nil && os.SameFile(parent, st) {
+			return filepath.Join(root, id), nil
+		}
+	}
+	return "", refused
+}
+
 // Find returns the directory of the instance ref names: an id, or a path to
-// an instance directory.
+// an instance directory in one of the roots.
 func Find(ref string) (string, error) {
 	if strings.ContainsRune(ref, '/') {
-		dir, err := filepath.Abs(ref)
+		dir, err := inRoots(ref)
 		if err != nil {
 			return "", err
 		}
-		if _, err := os.Stat(filepath.Join(dir, infoFile)); err != nil {
+		if !hasInfo(dir) {
 			return "", fmt.Errorf("%s: %w (no %s)", dir, ErrNotFound, infoFile)
 		}
 		return dir, nil
@@ -142,19 +221,18 @@ func Find(ref string) (string, error) {
 	if !ValidID(ref) {
 		return "", fmt.Errorf("%q: %w", ref, ErrNotFound)
 	}
-	for _, root := range Roots() {
-		dir := filepath.Join(root, ref)
-		if _, err := os.Stat(filepath.Join(dir, infoFile)); err == nil {
+	for _, root := range verifiedRoots() {
+		if dir := filepath.Join(root, ref); hasInfo(dir) {
 			return dir, nil
 		}
 	}
 	return "", fmt.Errorf("%s: %w; lcd349 list shows the instances", ref, ErrNotFound)
 }
 
-// List returns every instance in the roots, oldest first.
+// List returns every instance in the verified roots, oldest first.
 func List() ([]*Info, error) {
 	var out []*Info
-	for _, root := range Roots() {
+	for _, root := range verifiedRoots() {
 		ents, err := os.ReadDir(root)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
@@ -163,10 +241,11 @@ func List() ([]*Info, error) {
 			return nil, err
 		}
 		for _, e := range ents {
-			if !e.IsDir() || !ValidID(e.Name()) {
+			dir := filepath.Join(root, e.Name())
+			if !e.IsDir() || !ValidID(e.Name()) || !hasInfo(dir) {
 				continue
 			}
-			info, err := Read(filepath.Join(root, e.Name()))
+			info, err := Read(dir)
 			if err != nil {
 				continue // being created or removed
 			}

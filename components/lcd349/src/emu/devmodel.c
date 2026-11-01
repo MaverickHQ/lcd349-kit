@@ -80,7 +80,12 @@ bool emu_write_atomic(const char *path, const void *data, size_t len)
 {
     char tmp[512];
     snprintf(tmp, sizeof tmp, "%s.tmp.%d", path, (int)getpid());
-    int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    /* A new file only, never through a symlink: a file left at the name (by
+     * an earlier boot with the same pid, say) is removed first. */
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0 && errno == EEXIST && unlink(tmp) == 0) {
+        fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    }
     if (fd < 0) {
         return false;
     }

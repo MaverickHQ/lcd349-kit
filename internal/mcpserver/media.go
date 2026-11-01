@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -11,11 +12,13 @@ import (
 	"image/draw"
 	"image/gif"
 	"image/png"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,6 +26,7 @@ import (
 	"github.com/MaverickHQ/lcd349-kit/internal/build"
 	"github.com/MaverickHQ/lcd349-kit/internal/drive"
 	"github.com/MaverickHQ/lcd349-kit/internal/golden"
+	"github.com/MaverickHQ/lcd349-kit/internal/instance"
 	"github.com/MaverickHQ/lcd349-kit/internal/scenario"
 	"github.com/MaverickHQ/lcd349-kit/internal/viewer"
 )
@@ -30,7 +34,7 @@ import (
 // ---- screenshot ----
 
 func (s *Server) screenshot(ctx context.Context, _ *mcp.CallToolRequest, in screenshotIn) (*mcp.CallToolResult, any, error) {
-	d, err := conn(ctx, in.Instance)
+	d, err := s.conn(ctx, in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,7 +142,7 @@ func resize(src image.Image, f float64) image.Image {
 // ---- ui_tree, with the 1 MB cap (KT5) ----
 
 func (s *Server) uiTree(ctx context.Context, _ *mcp.CallToolRequest, in treeIn) (*mcp.CallToolResult, any, error) {
-	d, err := conn(ctx, in.Instance)
+	d, err := s.conn(ctx, in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -267,7 +271,7 @@ func (s *Server) runScenario(ctx context.Context, _ *mcp.CallToolRequest, in sce
 // ---- record ----
 
 func (s *Server) record(ctx context.Context, _ *mcp.CallToolRequest, in recordIn) (*mcp.CallToolResult, any, error) {
-	info, err := pick(in.Instance)
+	info, err := s.pick(in.Instance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -299,12 +303,11 @@ func (s *Server) record(ctx context.Context, _ *mcp.CallToolRequest, in recordIn
 		if res.Frames == 0 {
 			return s.jsonResult(map[string]any{"frames": 0, "note": "no frames: nothing on screen changed while recording"}, false), nil, nil
 		}
-		out := filepath.Join(os.TempDir(), "lcd349-recordings")
-		if info.Project != "" {
-			out = filepath.Join(info.Project, build.Dir, "recordings")
+		out, err := recordingsDir(info.Project)
+		if err != nil {
+			return nil, nil, err
 		}
-		gifPath := filepath.Join(out, fmt.Sprintf("%s-%s.gif", info.ID, time.Now().Format("20060102-150405")))
-		n, err := framesToGIF(res.Dir, gifPath)
+		n, gifPath, err := framesToGIF(res.Dir, out, fmt.Sprintf("%s-%s", info.ID, time.Now().Format("20060102-150405")))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -313,14 +316,28 @@ func (s *Server) record(ctx context.Context, _ *mcp.CallToolRequest, in recordIn
 	return nil, nil, fmt.Errorf("action is start or stop")
 }
 
+// recordingsDir is where record writes a GIF: the project's
+// build-emu/recordings, or for an instance with no project a directory in
+// $TMPDIR only this user can use, checked as the instance roots are.
+func recordingsDir(project string) (string, error) {
+	if project != "" {
+		dir := filepath.Join(project, build.Dir, "recordings")
+		return dir, os.MkdirAll(dir, 0o755)
+	}
+	dir := filepath.Join(os.TempDir(), fmt.Sprintf("lcd349-recordings-%d", os.Getuid()))
+	return dir, instance.EnsurePrivateDir(dir)
+}
+
 var frameRe = regexp.MustCompile(`^frame-(\d+)-(\d+)\.png$`)
 
 // framesToGIF turns the instance's recorded frames (frame-<n>-<ms>.png) into
-// an animated GIF that keeps their timing.
-func framesToGIF(dir, out string) (int, error) {
+// an animated GIF that keeps their timing, in a new file in outDir: name.gif,
+// or name-2.gif and so on when that exists. It never writes through a file
+// or symlink already there.
+func framesToGIF(dir, outDir, name string) (int, string, error) {
 	ents, err := os.ReadDir(dir)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	type frame struct {
 		path string
@@ -338,11 +355,11 @@ func framesToGIF(dir, out string) (int, error) {
 	for i, f := range frames {
 		b, err := os.ReadFile(f.path)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		img, err := png.Decode(bytes.NewReader(b))
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		pal := image.NewPaletted(img.Bounds(), palette.Plan9)
 		draw.FloydSteinberg.Draw(pal, img.Bounds(), img, image.Point{})
@@ -353,13 +370,23 @@ func framesToGIF(dir, out string) (int, error) {
 		g.Image = append(g.Image, pal)
 		g.Delay = append(g.Delay, delay)
 	}
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return 0, err
+	for n := 1; n <= 100; n++ {
+		out := filepath.Join(outDir, name+".gif")
+		if n > 1 {
+			out = filepath.Join(outDir, fmt.Sprintf("%s-%d.gif", name, n))
+		}
+		fh, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return 0, "", err
+		}
+		err = gif.EncodeAll(fh, &g)
+		if cerr := fh.Close(); err == nil {
+			err = cerr
+		}
+		return len(frames), out, err
 	}
-	fh, err := os.Create(out)
-	if err != nil {
-		return 0, err
-	}
-	defer fh.Close()
-	return len(frames), gif.EncodeAll(fh, &g)
+	return 0, "", fmt.Errorf("no free name for %s.gif in %s", name, outDir)
 }

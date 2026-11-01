@@ -6,7 +6,7 @@ import "embed"
 
 // Version is the kit version. It equals LCD349_VERSION_STR in
 // components/lcd349/include/lcd349_core.h (internal/repocheck checks).
-const Version = "0.2.0"
+const Version = "0.2.1"
 
 // RepoURL is the kit's repository, which `lcd349 new` pins. It must match
 // plugin/scripts/lcd349-launch (internal/repocheck checks).

@@ -2,9 +2,46 @@
 
 All notable changes to lcd349-kit are listed here. The SDK follows semantic versioning. Before 1.0, a breaking change to a public header bumps the minor version and is listed under **Breaking** (requirement 1.8).
 
-## v0.2.0 (2026-10-31)
+## v0.2.1 (2026-11-01)
 
-The first published version. The repository is public at `github.com/MaverickHQ/lcd349-kit`, CI builds the release binaries, and the Claude Code plugin installs from the repository's marketplace. The SDK is v0.1.0's: no public header changed but the version macros, so nothing breaks. The minor version moves because the published tree isn't the same as the local v0.1.0 tag.
+Fixes from a security review of v0.2.0. No public header changed but the version macros, so nothing breaks.
+
+### Security
+- **Instance directories are checked on every read, not only when created.** `lcd349 list` and `stop` and the MCP tools read any instance root, so a `/tmp/lcd349-<uid>` planted by another local user could hand `stop` a process to signal, or a tool a socket to talk to. Every read now skips a root or instance directory that isn't a real directory owned by you and closed to others, and reads `instance.json` only as a regular file, up to 4 MB.
+- **`stop` removes only instance directories.** An MCP `stop` with `"instance": "./"` removed any directory that held an `instance.json`. A path now names an instance only when it's a direct child of a checked root, symlinks evaluated, and the MCP server resolves a relative one against its workspace.
+- **The MCP `record` tool** writes the GIF of an instance with no project into an owner-only `$TMPDIR/lcd349-recordings-<uid>/`, checked as the instance roots are, not a shared folder; and a recording never overwrites, or writes through a symlink at, its name.
+- **A request may nest at most 16 arrays and objects deep.** The emulator parses each request recursively, on a 32 KB task: it now refuses a deeper one before parsing it (`-32600`), and `lcd349` refuses to send one; a scenario's `state` `set` is checked as the file is read.
+- **The release workflow:** the build, `SHA256SUMS` and the release checks run read-only, for a dry run too. Only a publish job, on a tag, can write; it runs no code from the repository, and publishes only when `dist/` holds exactly `SHA256SUMS` and the four binaries it lists.
+- **`tools/publish/export`:**
+  - it reads the blobs of a commit (HEAD, or `--commit`), never the working tree, and prints the commit; exporting HEAD, it refuses an allowlisted file that differs from it in the working tree or the index;
+  - it compares `--out` with `--repo` as files, so a case variant on a case-insensitive disk is caught, and refuses an `--out` that holds the working copy or is a clone of it. Inside the working copy it takes only a separate git repository the working copy ignores, as `build/_public/lcd349-kit` is;
+  - valvur exits 0 when it finds something, so the export reads its `run.json` and goes on only when the status is `clean`. A stale vulnerability database makes the status `inconclusive`, which the export refuses too: update valvur's data first;
+  - gitleaks runs on the export's own configuration (its default rules), with an empty ignore file and `--ignore-gitleaks-allow`, whatever `GITLEAKS_CONFIG` says; a `.gitleaksignore` or a valvur configuration in the tree is refused;
+  - the home-folder check ignores case and covers Linux and Windows home folders too; an image carrying metadata or text is refused: PNG text, EXIF and time chunks; JPEG EXIF, XMP, IPTC and comments, before or after the image data; GIF comments, text and XMP; and data after an image's end;
+  - a path holding a denylisted value is named by its allowlist line, in every message;
+  - it removes its staged copy of the tree when it's done, unless valvur's report there refused it.
+- The emulator opens its temporary files with `O_EXCL|O_NOFOLLOW`, and `fb.bin` with `O_NOFOLLOW`; `lcd349` reads an instance's reply up to 32 MB, not without bound.
+
+### Fixed
+- **`ui.tree` with the path `/` crashed the instance** (a NULL `strcmp` under the UI lock). An empty path, or one of slashes only, is the active screen; a segment that isn't a number is refused.
+- **Storage could write a namespace it couldn't read back.** A namespace's file loads up to 64 KB, but any size was saved. A set past 64 KB now returns `LCD349_ERR_NO_MEM` and changes nothing, as a full NVS does on the board.
+- **On macOS, a failing host test hung or crashed the run** instead of failing it: Unity's `setjmp` and `longjmp` restored the signal mask and stopped the `linux` target's tick. The host test app builds Unity with `_setjmp` and `_longjmp`. `tools/timeout` limits a command from its parent process (macOS has no `timeout`): it kills the command's whole process group at the limit, passes on TERM, INT and HUP, and exits as GNU `timeout` does.
+- **The plugin's launcher** could wait for good on a stalled download, and a TERM left a partial file. curl now has a 30 s connect timeout and a 10-minute limit, and a TERM or INT stops the download at once and removes the partial file.
+- **`lcd349 mcp` answered nothing to a client that closed stdin straight after its requests** (`printf … | lcd349 mcp`). The end of stdin now waits until every request read has been answered, or 2 minutes, with or without a newline after the last request.
+- **With `TMPDIR=/private/tmp` on a Mac, `lcd349 list` showed every instance twice**, and a command with no instance named found two running: the two instance roots, `$TMPDIR/lcd349-<uid>` and `/tmp/lcd349-<uid>`, were one directory. Each is now read once.
+- `lcd349 new --kit-path` and `new_project` write the kit path into `idf_component.yml` as a quoted string, so a path with quotes, backslashes or a newline in it stays itself.
+
+### Changed
+- **`lcd349 stop <path>`, `lcd349 logs <path>` and the other commands and MCP tools that take an instance by its path accept only an instance directory inside the current instance roots** (`$TMPDIR/lcd349-<uid>/`, `/tmp/lcd349-<uid>/`, or `LCD349_INSTANCES`). An instance started with another `LCD349_INSTANCES` is named with that variable set, as when it was started.
+- `tools/publish/export` takes `--commit`, and needs valvur's status to be `clean` (see Security).
+- `golang.org/x/sys` v0.49.0 and `go.yaml.in/yaml/v3` v3.0.6. `x/sys` needs Go 1.26, so building `lcd349` from source does too.
+- CI and the release run on `ubuntu-24.04`, not `ubuntu-latest`, and every job has a time limit. Dependabot can't watch the ESP-IDF container image, so it's updated by hand.
+- The README lists the board's hardware the kit doesn't cover yet.
+- The version strings say `0.2.1`. `plugin/scripts/checksums.txt` has no `lcd349` lines until the release's dry run gives them.
+
+## v0.2.0 (2026-11-01)
+
+The first published version: [the release](https://github.com/MaverickHQ/lcd349-kit/releases/tag/v0.2.0). The repository is public at `github.com/MaverickHQ/lcd349-kit`, CI builds the release binaries, and the Claude Code plugin installs from the repository's marketplace. The SDK is v0.1.0's: no public header changed but the version macros, so nothing breaks. The minor version moves because the published tree isn't the same as the local v0.1.0 tag.
 
 ### Added
 - **The release, built by CI on a tag** (`.github/workflows/release.yml`): `lcd349` and `lcd349-view` for macOS arm64 and Linux x86_64, `SHA256SUMS`, a build attestation for each binary (check one with `gh attestation verify`), and the GitHub release. The plugin's launcher downloads `lcd349` and runs it only if its SHA-256 matches `plugin/scripts/checksums.txt`, which holds the release's `lcd349` lines.

@@ -247,6 +247,32 @@ func TestPathsAreConfined(t *testing.T) {
 	}
 }
 
+// TestInstanceArgumentsStayInsideTheRoots: an instance argument is an id or
+// an instance directory in the instance roots, never another directory that
+// holds an instance.json (stop on "./" removed the workspace).
+func TestInstanceArgumentsStayInsideTheRoots(t *testing.T) {
+	s := newSession(t)
+	victim := filepath.Join(s.root, "victim")
+	for _, d := range []string{s.root, victim} {
+		os.MkdirAll(d, 0o700)
+		if err := os.WriteFile(filepath.Join(d, "instance.json"), []byte(`{"id":"victim","supervisor_pid":1,"pid":1}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, ref := range []string{"./", ".", s.root, s.root + "/", victim, "victim/", "../" + filepath.Base(s.root)} {
+		for _, tool := range []string{"stop", "logs"} {
+			if msg := text(s.call(tool, map[string]any{"instance": ref}, true)); !strings.Contains(msg, "no such instance") {
+				t.Errorf("%s %q: %s", tool, ref, msg)
+			}
+		}
+	}
+	for _, d := range []string{s.root, victim} {
+		if _, err := os.Stat(filepath.Join(d, "instance.json")); err != nil {
+			t.Fatalf("stop removed %s: %v", d, err)
+		}
+	}
+}
+
 // TestInstanceTools drives one instance through every instance tool.
 func TestInstanceTools(t *testing.T) {
 	s := newSession(t)
@@ -515,5 +541,62 @@ func TestResize(t *testing.T) {
 	r := resize(img, 1.339)
 	if r.Bounds().Dx() != 857 || r.Bounds().Dy() != 230 {
 		t.Fatalf("resized to %v", r.Bounds())
+	}
+}
+
+// TestRecordingsStayPrivate: a recording of an instance with no project
+// goes to a directory only this user can use, under the same checks as the
+// instance roots, and is never written through a planted file or symlink.
+func TestRecordingsStayPrivate(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	dir, err := recordingsDir("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Dir(dir) != filepath.Clean(tmp) || !strings.Contains(filepath.Base(dir), fmt.Sprint(os.Getuid())) {
+		t.Errorf("recordings go to %s, want a per-user directory in %s", dir, tmp)
+	}
+	if st, err := os.Lstat(dir); err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
+		t.Fatalf("%s: %v, %v; want a 0700 directory", dir, st.Mode(), err)
+	}
+	// Planted as a symlink, it's refused.
+	os.RemoveAll(dir)
+	if err := os.Symlink(t.TempDir(), dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recordingsDir(""); err == nil {
+		t.Error("recordingsDir accepted a symlink")
+	}
+	// A project's recordings go into its build-emu.
+	proj := t.TempDir()
+	if got, err := recordingsDir(proj); err != nil || got != filepath.Join(proj, "build-emu", "recordings") {
+		t.Errorf("recordingsDir(project) = %s, %v", got, err)
+	}
+
+	// framesToGIF never writes through a file planted at its name.
+	frames := t.TempDir()
+	var b bytes.Buffer
+	png.Encode(&b, flip(nil))
+	os.WriteFile(filepath.Join(frames, "frame-1-0.png"), b.Bytes(), 0o600)
+	victim := filepath.Join(t.TempDir(), "victim")
+	os.WriteFile(victim, []byte("keep"), 0o600)
+	outDir := t.TempDir()
+	planted := filepath.Join(outDir, "rec.gif")
+	if err := os.Symlink(victim, planted); err != nil {
+		t.Fatal(err)
+	}
+	_, got, err := framesToGIF(frames, outDir, "rec")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(outDir, "rec-2.gif") {
+		t.Errorf("the recording went to %s, want rec-2.gif beside the planted name", got)
+	}
+	if body, _ := os.ReadFile(victim); string(body) != "keep" {
+		t.Error("framesToGIF wrote through a planted symlink")
+	}
+	if st, err := os.Lstat(planted); err != nil || st.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the planted symlink was replaced: %v", err)
 	}
 }

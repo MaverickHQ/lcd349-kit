@@ -308,7 +308,9 @@ static cJSON *node(lv_obj_t *obj, int depth, int *count, bool *truncated)
     return o;
 }
 
-/* Resolves "screen/0:obj/2:button" (class names optional) to an object. */
+/* Resolves "screen/0:obj/2:button" (class names optional) to an object. An
+ * empty path, or one of slashes only, is the active screen; a segment is a
+ * child index in digits, then optionally ':' and its class. */
 static lv_obj_t *resolve(const char *path)
 {
     if (!path || !*path || !strcmp(path, "screen")) {
@@ -318,15 +320,21 @@ static lv_obj_t *resolve(const char *path)
     snprintf(buf, sizeof buf, "%s", path);
     char *save = NULL;
     char *seg = strtok_r(buf, "/", &save);
+    if (!seg) {
+        return lv_screen_active();
+    }
     lv_obj_t *o = !strcmp(seg, "screen") ? lv_screen_active() : !strcmp(seg, "top") ? lv_layer_top() : NULL;
     while (o && (seg = strtok_r(NULL, "/", &save))) {
-        char *colon = strchr(seg, ':');
-        int idx = atoi(seg);
-        if (idx < 0 || (uint32_t)idx >= lv_obj_get_child_count(o)) {
+        if (*seg < '0' || *seg > '9') {
             return NULL;
         }
-        o = lv_obj_get_child(o, idx);
-        if (colon && strcmp(colon + 1, emu_ui_class(o)) != 0) {
+        char *end = NULL;
+        long idx = strtol(seg, &end, 10);
+        if ((*end != '\0' && *end != ':') || idx < 0 || (uint32_t)idx >= lv_obj_get_child_count(o)) {
+            return NULL;
+        }
+        o = lv_obj_get_child(o, (int32_t)idx);
+        if (*end == ':' && strcmp(end + 1, emu_ui_class(o)) != 0) {
             return NULL;
         }
     }

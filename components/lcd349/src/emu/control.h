@@ -19,6 +19,15 @@
 #define RPC_INTERNAL -32603
 #define RPC_UNAVAILABLE 1 /* not possible in the device's current state */
 
+/* The deepest a request may nest, the request object itself counting as
+ * one: cJSON parses recursively, on the control task's 32 KB stack. The Go
+ * client (internal/rpc's MaxDepth) holds the same limit. */
+#define RPC_MAX_DEPTH 16
+
+/* Whether the JSON text s[0, len) nests at most max arrays and objects
+ * deep. Brackets inside strings don't count. */
+bool emu_json_depth_ok(const char *s, size_t len, int max);
+
 typedef struct rpc_client rpc_client_t;
 
 typedef enum { RPC_DONE, RPC_PENDING, RPC_FAIL } rpc_res_t;

@@ -5,6 +5,7 @@ package scenario
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/MaverickHQ/lcd349-kit/internal/drive"
+	"github.com/MaverickHQ/lcd349-kit/internal/rpc"
 )
 
 // Scenario is one parsed file.
@@ -194,6 +196,14 @@ func parseStep(n *yaml.Node) (Step, error) {
 		st.State = &State{}
 		if err = strict(st.State); err == nil && st.State.Set == nil && st.State.Expect == nil {
 			err = errors.New("state needs set or expect")
+		}
+		if err == nil && st.State.Set != nil {
+			// state.set's request is one level more than set itself.
+			if b, jerr := json.Marshal(st.State.Set); jerr != nil {
+				err = jerr
+			} else if d := 1 + rpc.Depth(b); d > rpc.MaxDepth {
+				err = fmt.Errorf("state's set nests too deep: an instance takes requests at most %d arrays and objects deep, and this one is %d", rpc.MaxDepth, d)
+			}
 		}
 	case "power":
 		st.Power = val.Value

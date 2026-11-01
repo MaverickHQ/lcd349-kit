@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.16)
 project(lcd349_view C)
 
 # Keep in step with LCD349_VERSION_STR (internal/repocheck checks).
-set(VIEW_VERSION "0.2.0" CACHE STRING "Version printed by lcd349-view --version")
+set(VIEW_VERSION "0.2.1" CACHE STRING "Version printed by lcd349-view --version")
 option(VIEW_WERROR "Treat warnings as errors (CI)" OFF)
 
 set(CMAKE_C_STANDARD 11)

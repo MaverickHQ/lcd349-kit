@@ -15,6 +15,11 @@ name: release
 #      unless the lcd349 binaries match the tagged checksums.txt and CHANGELOG.md
 #      has a "## vX.Y.Z (date)" entry, attests every binary and creates the release.
 #
+# Only the publish job, which runs on a tag alone, can write: it runs no code
+# from the repository, only the attestation action and gh on the files the
+# read-only jobs built and checked, and only when dist/ holds exactly the
+# expected files.
+#
 # Every action is pinned by commit SHA (its release in the comment), and SDL2 to
 # an exact version (requirement 1.6).
 
@@ -34,6 +39,7 @@ jobs:
   lcd349:
     name: lcd349 for macOS arm64 and Linux x86_64
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -95,6 +101,7 @@ jobs:
             machine: x86_64
             asset: linux_amd64
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -150,14 +157,11 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  release:
-    name: SHA256SUMS, attestations and the release
+  sums:
+    name: SHA256SUMS and the release checks
     needs: [lcd349, viewer]
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write # the release
-      id-token: write # the attestations' signing identity
-      attestations: write
+    timeout-minutes: 10
     env:
       VERSION: ${{ needs.lcd349.outputs.version }}
     steps:
@@ -201,17 +205,65 @@ jobs:
       - name: The CHANGELOG entry
         if: github.ref_type == 'tag'
         run: |
-          awk -v h="## v$VERSION " '/^## /{ on = index($0, h) == 1; next } on' CHANGELOG.md > notes.md
-          if [ ! -s notes.md ]; then
+          mkdir -p notes
+          awk -v h="## v$VERSION " '/^## /{ on = index($0, h) == 1; next } on' CHANGELOG.md > notes/notes.md
+          if [ ! -s notes/notes.md ]; then
             echo "::error::CHANGELOG.md has no \"## v$VERSION (date)\" entry"
             exit 1
           fi
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.ref_type == 'tag'
+        with:
+          name: notes
+          path: notes/notes.md
+          if-no-files-found: error
+
+  publish:
+    name: Attestations and the release
+    if: github.ref_type == 'tag'
+    needs: [lcd349, sums]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # the release
+      id-token: write # the attestations' signing identity
+      attestations: write
+    env:
+      VERSION: ${{ needs.lcd349.outputs.version }}
+    steps:
+      # No checkout: this job runs nothing from the repository.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: lcd349*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: SHA256SUMS
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: notes
+          path: notes
+      - name: dist holds exactly the release's files, as SHA256SUMS lists them
+        run: |
+          printf '%s\n' SHA256SUMS \
+            "lcd349_${VERSION}_darwin_arm64" "lcd349_${VERSION}_linux_amd64" \
+            "lcd349-view_${VERSION}_darwin_arm64" "lcd349-view_${VERSION}_linux_amd64" | sort > expected.txt
+          (cd dist && find . -mindepth 1 | sed 's|^\./||' | sort) > found.txt
+          if ! diff -u expected.txt found.txt; then
+            echo "::error::dist/ doesn't hold exactly the release's files"
+            exit 1
+          fi
+          (cd dist && sha256sum -c --strict SHA256SUMS)
+          if [ "$(wc -l < dist/SHA256SUMS)" -ne 4 ]; then
+            echo "::error::SHA256SUMS doesn't list exactly the four binaries"
+            exit 1
+          fi
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/lcd349*
       - name: The release
-        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md dist/*
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes/notes.md dist/*

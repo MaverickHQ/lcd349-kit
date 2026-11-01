@@ -4,9 +4,9 @@ Build directory '/work/unsup/build' not found. Nothing to clean.
 Executing action: set-target
 Set Target to: linux, new sdkconfig will be created.
 Running cmake in directory /work/unsup/build
-Executing "cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/someone/.espressif/python_env/idf5.5_py3.12_env/bin/python -DESP_PLATFORM=1 -DIDF_TARGET=linux -DCCACHE_ENABLE=0 /work/unsup"...
+Executing "cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/opt/someone/.espressif/python_env/idf5.5_py3.12_env/bin/python -DESP_PLATFORM=1 -DIDF_TARGET=linux -DCCACHE_ENABLE=0 /work/unsup"...
 -- Found Git: /usr/bin/git (found version "2.39.5 (Apple Git-154)")
--- Component directory /home/someone/esp/v5.5.5/esp-idf/components/esp_blockdev does not contain a CMakeLists.txt file. No component will be added
+-- Component directory /opt/someone/esp/v5.5.5/esp-idf/components/esp_blockdev does not contain a CMakeLists.txt file. No component will be added
 -- Minimal build - OFF
 -- The C compiler identification is AppleClang 16.0.0.16000026
 -- The CXX compiler identification is AppleClang 16.0.0.16000026
@@ -30,13 +30,13 @@ Executing "cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/someone/.espres
 -- Could not use 'git describe' to determine PROJECT_VER.
 -- Building ESP-IDF components for target linux
 -- ESP-TEE is currently supported only on the esp32c6;esp32h2;esp32c5 SoCs
-CMake Error at /home/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:337 (message):
+CMake Error at /opt/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:337 (message):
   Failed to resolve component 'esp_lcd' required by component 'main':
   component not registered.
 Call Stack (most recent call first):
-  /home/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:375 (__build_resolve_and_add_req)
-  /home/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:689 (__build_expand_requirements)
-  /home/someone/esp/v5.5.5/esp-idf/tools/cmake/project.cmake:752 (idf_build_process)
+  /opt/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:375 (__build_resolve_and_add_req)
+  /opt/someone/esp/v5.5.5/esp-idf/tools/cmake/build.cmake:689 (__build_expand_requirements)
+  /opt/someone/esp/v5.5.5/esp-idf/tools/cmake/project.cmake:752 (idf_build_process)
   CMakeLists.txt:4 (project)
 
 

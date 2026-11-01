@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           . $IDF_PATH/export.sh
-          V=0.2.0
+          V=0.2.1
           curl -fsSLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/lcd349_${V}_linux_amd64
           curl -fsSLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/SHA256SUMS
           sha256sum -c --ignore-missing SHA256SUMS

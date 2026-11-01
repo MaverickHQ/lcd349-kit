@@ -28,8 +28,8 @@ Contracts that hold for the whole SDK:
 ```c
 #define LCD349_VERSION_MAJOR 0
 #define LCD349_VERSION_MINOR 2
-#define LCD349_VERSION_PATCH 0
-#define LCD349_VERSION_STR "0.2.0"
+#define LCD349_VERSION_PATCH 1
+#define LCD349_VERSION_STR "0.2.1"
 
 typedef enum {
     LCD349_OK = 0,

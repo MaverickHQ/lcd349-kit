@@ -159,3 +159,111 @@ func TestBuildTool(t *testing.T) {
 		t.Fatalf("build: %+v", res)
 	}
 }
+
+// TestStdioAnswersAfterStdinCloses: a client that sends its requests and
+// closes stdin at once (printf ... | lcd349 mcp) gets every answer before
+// the server exits, promptly, with or without a newline after the last
+// request. go-sdk on its own writes nothing once it has read EOF.
+func TestStdioAnswersAfterStdinCloses(t *testing.T) {
+	for _, end := range []string{"\n", ""} {
+		t.Run(fmt.Sprintf("ending %q", end), func(t *testing.T) { stdioAnswersAfterStdinCloses(t, end) })
+	}
+}
+
+func stdioAnswersAfterStdinCloses(t *testing.T, end string) {
+	inst, err := os.MkdirTemp("/tmp", "l349s-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(inst) })
+	cmd := exec.Command(lcd349Bin, "mcp", "--root", t.TempDir())
+	cmd.Env = append(os.Environ(), "LCD349_INSTANCES="+inst)
+	cmd.Stdin = strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`,
+		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+		`{"jsonrpc":"2.0","id":"three","method":"tools/call","params":{"name":"device_info","arguments":{}}}`,
+	}, "\n") + end)
+	var stdout, stderr strings.Builder
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	start := time.Now()
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("lcd349 mcp: %v\n%s", err, stderr.String())
+		}
+	case <-time.After(60 * time.Second):
+		cmd.Process.Kill()
+		t.Fatal("lcd349 mcp didn't exit after stdin closed")
+	}
+	if d := time.Since(start); d > 20*time.Second {
+		t.Errorf("lcd349 mcp took %s to exit after stdin closed", d)
+	}
+	answered := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		var m struct {
+			ID     json.RawMessage `json:"id"`
+			Result json.RawMessage `json:"result"`
+		}
+		if json.Unmarshal([]byte(line), &m) == nil && m.Result != nil {
+			answered[string(m.ID)] = true
+		}
+	}
+	for _, id := range []string{`1`, `2`, `"three"`} {
+		if !answered[id] {
+			t.Errorf("no answer to request %s; stdout:\n%s\nstderr:\n%s", id, stdout.String(), stderr.String())
+		}
+	}
+}
+
+// TestStdioLastRequestWithoutNewline: a last request with no newline after
+// it, answered before stdin closes, doesn't hold the exit back: the server
+// exits promptly once stdin closes.
+func TestStdioLastRequestWithoutNewline(t *testing.T) {
+	inst, err := os.MkdirTemp("/tmp", "l349s-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(inst) })
+	cmd := exec.Command(lcd349Bin, "mcp", "--root", t.TempDir())
+	cmd.Env = append(os.Environ(), "LCD349_INSTANCES="+inst)
+	in, _ := cmd.StdinPipe()
+	stdout, _ := cmd.StdoutPipe()
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cmd.Process.Kill() })
+	io.WriteString(in, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`+"\n"+
+		`{"jsonrpc":"2.0","id":2,"method":"ping"}`)
+	out := bufio.NewScanner(stdout)
+	for answered := 0; answered < 2; {
+		if !out.Scan() {
+			t.Fatalf("stdout closed before both answers: %s", stderr.String())
+		}
+		if strings.Contains(out.Text(), `"result"`) {
+			answered++
+		}
+	}
+	in.Close()
+	start := time.Now()
+	done := make(chan error, 1)
+	go func() { io.Copy(io.Discard, stdout); done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("lcd349 mcp: %v\n%s", err, stderr.String())
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("lcd349 mcp didn't exit after stdin closed")
+	}
+	if d := time.Since(start); d > 10*time.Second {
+		t.Errorf("lcd349 mcp took %s to exit after stdin closed", d)
+	}
+}

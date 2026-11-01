@@ -20,6 +20,10 @@
 
 #define FILE_MAGIC "L349KV1\n"
 
+/* A namespace's file holds at most this much: load_file reads no more, so a
+ * set that would grow it past this fails with NO_MEM, as a full NVS does. */
+#define FILE_MAX (64 * 1024)
+
 typedef struct entry {
     char key[LCD349_KV_NAME_MAX + 1];
     lcd349_kv_type_t type;
@@ -79,15 +83,28 @@ static entry_t *find_entry(ns_t *n, const char *key)
     return NULL;
 }
 
+/* The bytes an entry takes in its namespace's file. */
+static size_t entry_size(const char *key, size_t len)
+{
+    return 1 + strlen(key) + 1 + 4 + len;
+}
+
+/* The size of n's file. */
+static size_t ns_size(const ns_t *n)
+{
+    size_t total = strlen(FILE_MAGIC) + 1 + strlen(n->name);
+    for (const entry_t *e = n->entries; e; e = e->next) {
+        total += entry_size(e->key, e->len);
+    }
+    return total;
+}
+
 static bool save_ns(const ns_t *n)
 {
     if (!s_have_dir) {
         return true;
     }
-    size_t total = strlen(FILE_MAGIC) + 1 + strlen(n->name);
-    for (const entry_t *e = n->entries; e; e = e->next) {
-        total += 1 + strlen(e->key) + 1 + 4 + e->len;
-    }
+    size_t total = ns_size(n);
     uint8_t *buf = malloc(total), *p = buf;
     if (!buf) {
         return false;
@@ -124,7 +141,6 @@ static void load_file(const char *path)
     }
     /* On the heap: 64 KB is more than the main task's whole stack, and this
      * runs there, in lcd349_init, whenever an earlier boot left a file. */
-    enum { FILE_MAX = 64 * 1024 };
     uint8_t *buf = malloc(FILE_MAX);
     if (!buf) {
         fclose(f);
@@ -243,6 +259,10 @@ lcd349_err_t be_kv_set(const char *ns, const char *key, lcd349_kv_type_t type, c
     xSemaphoreTake(s_mu, portMAX_DELAY);
     ns_t *n = find_ns(ns, true);
     entry_t *e = n ? find_entry(n, key) : NULL;
+    if (n && ns_size(n) - (e ? entry_size(e->key, e->len) : 0) + entry_size(key, len) > FILE_MAX) {
+        xSemaphoreGive(s_mu);
+        return LCD349_ERR_NO_MEM; /* the namespace is full */
+    }
     if (n && !e) {
         e = calloc(1, sizeof *e);
         if (e) {

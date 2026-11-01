@@ -241,7 +241,7 @@ Built in task group 4. One module per concern: `devmodel.c`, `fb.c`, `serial.c`,
   - Each loop polls with timeout 0, serves at most one request per client, and calls `vTaskDelay(1)`.
   - A client's next request waits for the answer to its previous one. Requests that take time (`wait`, `input.*`) stay pending.
   - Screen methods take the LVGL lock from the control task, which gives the same exclusion as queueing work to `lcd349_ui`.
-  - A line over 64 KB is refused with `-32600` and the connection carries on. A client queueing over 1 MB of unanswered input is closed. `EINTR` is retried.
+  - A line over 64 KB, or nesting more than 16 arrays and objects deep (requests are parsed recursively on the control task's 32 KB stack), is refused with `-32600` and the connection carries on. A client queueing over 1 MB of unanswered input is closed. `EINTR` is retried.
   - A client that has finished sending (end of file, as `printf ... | nc -U` does) is answered before it's closed. Replies use `send` with `MSG_NOSIGNAL` (`SO_NOSIGPIPE` on macOS), so a vanished client can't end the instance with SIGPIPE (both found in task 10.4).
   - Notifications (no `id`) get no answer.
   - JSON comes from ESP-IDF's own cJSON (`json` component), so there is no new dependency.

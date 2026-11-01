@@ -6,7 +6,7 @@ This page takes you from nothing to a product running in the emulator, checked b
 
 - **macOS** on Apple silicon (the main platform) or Intel, or **Linux** x86_64 (arm64 should work too).
 - **ESP-IDF** at the version in [`VERSIONS`](../VERSIONS) (see below).
-- **Go** 1.25 or later, only to build `lcd349` from source: the release has binaries for macOS on Apple silicon and Linux on x86_64.
+- **Go** 1.26 or later, only to build `lcd349` from source: the release has binaries for macOS on Apple silicon and Linux on x86_64.
 - **CMake and Ninja.** On macOS: `brew install cmake ninja`. On Linux: `apt install cmake ninja-build`.
 - **SDL2 and pkg-config** for the window: `brew install sdl2 pkg-config`, or `apt install libsdl2-dev pkg-config`. Without them everything works headless.
 - **On Linux,** `apt install libbsd-dev` for ESP-IDF's `linux` target.
@@ -28,7 +28,7 @@ If the install fails with certificate errors (python.org's Python on macOS ships
 From the release (macOS on Apple silicon shown; on Linux x86_64 use `linux_amd64`), checked against its `SHA256SUMS`:
 
 ```
-V=0.2.0; A=darwin_arm64
+V=0.2.1; A=darwin_arm64
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/lcd349_${V}_$A
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/SHA256SUMS
 shasum -a 256 -c --ignore-missing SHA256SUMS
@@ -114,7 +114,7 @@ Every SDK call works on the board (revision V2). Light sleep is experimental the
      lcd349:
        git: https://github.com/MaverickHQ/lcd349-kit.git
        path: components/lcd349
-       version: v0.2.0
+       version: v0.2.1
    ```
 
    During development, use `override_path: /path/to/lcd349-kit/components/lcd349` instead.

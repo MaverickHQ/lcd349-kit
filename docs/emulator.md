@@ -67,7 +67,7 @@ printf '{"jsonrpc":"2.0","id":1,"method":"state.get"}\n' | nc -U "$TMPDIR/lcd349
 | `audio.events` | the tones played since a sequence number |
 | `record.start`, `record.stop` | PNG frames of everything drawn, for `max_s` seconds (default 10, at most 60) or 600 frames, whichever comes first |
 
-Lines over 64 KB and malformed requests get JSON-RPC errors; the instance carries on. There is no network listener anywhere: only this owner-only Unix socket.
+Lines over 64 KB, requests nesting more than 16 arrays and objects deep, and malformed requests get JSON-RPC errors; the instance carries on. There is no network listener anywhere: only this owner-only Unix socket.
 
 ## Environment variables
 

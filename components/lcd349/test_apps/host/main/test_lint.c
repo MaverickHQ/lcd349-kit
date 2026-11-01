@@ -347,6 +347,42 @@ static void test_tree_and_find_text(void)
     lcd349_ui_unlock();
 }
 
+/* Paths: an empty one, or only slashes, is the active screen; a segment
+ * is digits and an optional :class; anything else finds nothing. */
+static void test_tree_paths(void)
+{
+    lcd349_ui_lock();
+    lv_obj_t *s = fixture();
+    button(s, 100, 50, 120, 60);
+    lv_obj_update_layout(s);
+    int n = 0;
+    bool trunc = false;
+    const char *screen[] = {"", "/", "//", "screen", "screen/"};
+    for (size_t i = 0; i < sizeof screen / sizeof screen[0]; i++) {
+        n = 0;
+        cJSON *t = emu_ui_tree(screen[i], 1, &n, &trunc);
+        TEST_ASSERT_NOT_NULL_MESSAGE(t, screen[i]);
+        TEST_ASSERT_EQUAL_STRING_MESSAGE("screen", cJSON_GetObjectItem(t, "path")->valuestring, screen[i]);
+        cJSON_Delete(t);
+    }
+    const char *found[] = {"screen/0", "screen/0:button", "/screen/0:button"};
+    for (size_t i = 0; i < sizeof found / sizeof found[0]; i++) {
+        n = 0;
+        cJSON *t = emu_ui_tree(found[i], 1, &n, &trunc);
+        TEST_ASSERT_NOT_NULL_MESSAGE(t, found[i]);
+        TEST_ASSERT_EQUAL_STRING_MESSAGE("screen/0:button", cJSON_GetObjectItem(t, "path")->valuestring, found[i]);
+        cJSON_Delete(t);
+    }
+    const char *none[] = {"screen/abc", "screen/0x", "screen/-1", "screen/ 0", "screen/:button", "screen/99",
+                          "screen/0:label", "nowhere/0", "nowhere"};
+    for (size_t i = 0; i < sizeof none / sizeof none[0]; i++) {
+        n = 0;
+        TEST_ASSERT_NULL_MESSAGE(emu_ui_tree(none[i], 1, &n, &trunc), none[i]);
+    }
+    done();
+    lcd349_ui_unlock();
+}
+
 void run_lint_tests(void)
 {
     RUN_TEST(test_lint_touch_target);
@@ -359,4 +395,5 @@ void run_lint_tests(void)
     RUN_TEST(test_lint_no_momentum);
     RUN_TEST(test_lint_gradient);
     RUN_TEST(test_tree_and_find_text);
+    RUN_TEST(test_tree_paths);
 }

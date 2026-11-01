@@ -3,6 +3,10 @@
 # per version (herdr-pager ADR 0010), so its pull requests are notices: the
 # update is made, checked with valvur and pinned in the working copy, and
 # arrives with the next export.
+#
+# Dependabot doesn't update a workflow's container: image (its docker
+# ecosystem reads Dockerfiles; dependabot-core issue 5541), so ci.yml's
+# ESP-IDF image and digest are bumped by hand, with VERSIONS.
 version: 2
 updates:
   - package-ecosystem: github-actions

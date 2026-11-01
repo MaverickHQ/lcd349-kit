@@ -15,7 +15,9 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
+	"time"
 
 	lcd349kit "github.com/MaverickHQ/lcd349-kit"
 )
@@ -200,5 +202,71 @@ func TestLauncherWithoutBinaryExplains(t *testing.T) {
 	_, errOut, code = l.run("", "CLAUDE_PLUGIN_DATA="+l.data)
 	if code == 0 || !strings.Contains(errOut, "development plugin") {
 		t.Fatalf("no checksum: exit %d, err %q", code, errOut)
+	}
+}
+
+// stalled serves part of an asset and then nothing, until the test ends.
+func stalled(t *testing.T) *httptest.Server {
+	done := make(chan struct{})
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000000")
+		w.Write(bytes.Repeat([]byte("x"), 1000))
+		w.(http.Flusher).Flush()
+		select {
+		case <-done:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(done); s.CloseClientConnections(); s.Close() })
+	return s
+}
+
+// parts lists the partial downloads left in the launcher's data directory.
+func (l *launcher) parts() []string {
+	m, _ := filepath.Glob(filepath.Join(l.data, "bin", "*.part.*"))
+	return m
+}
+
+// TestLauncherDownloadIsBounded: a download that stalls ends at the
+// launcher's time limit (LCD349_DOWNLOAD_MAX_TIME, tests only), and a
+// launcher stopped mid-download (TERM, as when Claude Code ends the
+// session) stops at once and leaves no partial file.
+func TestLauncherDownloadIsBounded(t *testing.T) {
+	l := newLauncher(t, map[string][]byte{"ASSET": good})
+	srv := stalled(t)
+	start := time.Now()
+	_, errOut, code := l.run(srv.URL, "CLAUDE_PLUGIN_DATA="+l.data, "LCD349_DOWNLOAD_MAX_TIME=2")
+	if code == 0 || !strings.Contains(errOut, "failed") {
+		t.Fatalf("a stalled download: exit %d, err %q", code, errOut)
+	}
+	if d := time.Since(start); d > 20*time.Second {
+		t.Fatalf("a stalled download took %s to give up", d)
+	}
+	if p := l.parts(); len(p) != 0 {
+		t.Fatalf("partial downloads left: %v", p)
+	}
+
+	cmd := exec.Command(l.script, "mcp")
+	cmd.Env = []string{"PATH=" + l.path, "HOME=" + t.TempDir(), "CLAUDE_PLUGIN_DATA=" + l.data, "LCD349_RELEASE_BASE=" + srv.URL}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(10 * time.Second); len(l.parts()) == 0; time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			cmd.Process.Kill()
+			t.Fatal("the download never started")
+		}
+	}
+	cmd.Process.Signal(syscall.SIGTERM)
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	select {
+	case <-exited:
+	case <-time.After(10 * time.Second):
+		cmd.Process.Kill()
+		t.Fatal("the launcher didn't stop on TERM")
+	}
+	if p := l.parts(); len(p) != 0 {
+		t.Fatalf("partial downloads left after TERM: %v", p)
 	}
 }

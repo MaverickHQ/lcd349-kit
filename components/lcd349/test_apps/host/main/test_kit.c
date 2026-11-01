@@ -4,7 +4,11 @@
  * backlight and sleep, battery, counted memory and power-off on USB.
  */
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "defaults.h"
 #include "emu.h"
@@ -304,6 +308,68 @@ static void test_storage(void)
     TEST_ASSERT_EQUAL(LCD349_ERR_NOT_FOUND, lcd349_kv_get_blob("app", "blob", back, &len));
 }
 
+/* A namespace holds at most what a storage file can load back (64 KB): a
+ * set past it returns NO_MEM and changes nothing, as the board's NVS does
+ * when it's full. */
+static void test_storage_namespace_cap(void)
+{
+    static uint8_t blob[LCD349_KV_VALUE_MAX];
+    memset(blob, 0xA5, sizeof blob);
+    char key[8];
+    int stored = 0;
+    lcd349_err_t err = LCD349_OK;
+    for (int i = 0; i < 40 && err == LCD349_OK; i++) {
+        snprintf(key, sizeof key, "k%d", i);
+        err = lcd349_kv_set_blob("big", key, blob, sizeof blob);
+        stored += err == LCD349_OK;
+    }
+    TEST_ASSERT_EQUAL(LCD349_ERR_NO_MEM, err);
+    TEST_ASSERT_TRUE(stored >= 15 && stored < 17); /* 4 KB values in a 64 KB namespace */
+    size_t len = sizeof blob;
+    TEST_ASSERT_EQUAL(LCD349_ERR_NOT_FOUND, lcd349_kv_get_blob("big", key, blob, &len));
+    /* Replacing a value with one the same size still fits; another namespace is apart. */
+    TEST_ASSERT_EQUAL(LCD349_OK, lcd349_kv_set_blob("big", "k0", blob, sizeof blob));
+    TEST_ASSERT_EQUAL(LCD349_OK, lcd349_kv_set_blob("small", "k0", blob, sizeof blob));
+    TEST_ASSERT_EQUAL(LCD349_OK, lcd349_kv_erase("big", NULL));
+    TEST_ASSERT_EQUAL(LCD349_OK, lcd349_kv_erase("small", NULL));
+    TEST_ASSERT_EQUAL(LCD349_OK, lcd349_kv_set_blob("big", "k0", blob, sizeof blob));
+    TEST_ASSERT_EQUAL(LCD349_OK, lcd349_kv_erase("big", NULL));
+}
+
+/* emu_write_atomic never writes through a file planted at its temporary
+ * name: a symlink there is replaced, and its target is left alone. */
+static void test_write_atomic_ignores_planted_temp(void)
+{
+    char dir[] = "/tmp/l349h-XXXXXX";
+    TEST_ASSERT_NOT_NULL(mkdtemp(dir));
+    char path[128], tmp[160], victim[128];
+    snprintf(path, sizeof path, "%s/out", dir);
+    snprintf(tmp, sizeof tmp, "%s.tmp.%d", path, (int)getpid());
+    snprintf(victim, sizeof victim, "%s/victim", dir);
+    FILE *f = fopen(victim, "w");
+    TEST_ASSERT_NOT_NULL(f);
+    fputs("keep", f);
+    fclose(f);
+    TEST_ASSERT_EQUAL(0, symlink(victim, tmp));
+    TEST_ASSERT_TRUE(emu_write_atomic(path, "new", 3));
+    char buf[8] = {0};
+    f = fopen(victim, "r");
+    TEST_ASSERT_NOT_NULL(f);
+    fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    TEST_ASSERT_EQUAL_STRING("keep", buf);
+    memset(buf, 0, sizeof buf);
+    f = fopen(path, "r");
+    TEST_ASSERT_NOT_NULL(f);
+    fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    TEST_ASSERT_EQUAL_STRING("new", buf);
+    unlink(path);
+    unlink(tmp);
+    unlink(victim);
+    rmdir(dir);
+}
+
 static lcd349_touch_sample_t s_touch[16];
 static volatile int s_ntouch;
 static volatile int s_clicks;
@@ -579,6 +645,8 @@ void run_kit_tests(void)
     RUN_TEST(test_battery);
     RUN_TEST(test_counted_memory);
     RUN_TEST(test_storage);
+    RUN_TEST(test_storage_namespace_cap);
+    RUN_TEST(test_write_atomic_ignores_planted_temp);
     RUN_TEST(test_touch_reaches_lvgl_as_a_click);
     RUN_TEST(test_touch_before_layout_still_clicks);
     RUN_TEST(test_ticks_restart_interrupted_calls);

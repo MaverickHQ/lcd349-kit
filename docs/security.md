@@ -14,16 +14,16 @@ lcd349-kit runs on your computer and runs code you give it. This page says what 
 
 ## Files it creates
 
-- Instance directories under `$TMPDIR/lcd349-<uid>/` (or `/tmp/lcd349-<uid>/`), owner-only. The kit refuses a directory there that isn't yours or is a symlink. `lcd349 stop` removes an instance's directory.
+- Instance directories under `$TMPDIR/lcd349-<uid>/` (or `/tmp/lcd349-<uid>/`), owner-only. The kit refuses, or skips when listing, a directory there that isn't yours, is open to other users or is a symlink, and reads `instance.json` only as a regular file. An instance named by a path must be an instance directory there. `lcd349 stop` removes an instance's directory, and never anything else.
 - Each instance's virtual serial port is a pseudo-terminal owned by you with mode 0600, so other users can't read or write it.
 - A cache in `~/.cache/lcd349/`: ESP-IDF's environment and the viewer built from the kit's sources.
-- Your project's `build-emu/` (the emulator build, kept apart from the board's `build/`), with the MCP `record` tool's GIFs in `build-emu/recordings/`, and goldens, actual and diff images and failed-`wait` screens in `tests/`. A recording of an instance with no project goes to `$TMPDIR/lcd349-recordings/`, which isn't owner-only.
+- Your project's `build-emu/` (the emulator build, kept apart from the board's `build/`), with the MCP `record` tool's GIFs in `build-emu/recordings/`, and goldens, actual and diff images and failed-`wait` screens in `tests/`. A recording of an instance with no project goes to `$TMPDIR/lcd349-recordings-<uid>/`, owner-only and checked as the instance directories are. A recording never overwrites a file, or writes through a symlink, already at its name.
 
 ## The MCP server's limits
 
 - A `project` argument must resolve, symlinks evaluated, to an ESP-IDF project that depends on lcd349; anything else is refused with the reason.
 - Scenario and golden paths must lie inside that project; `new_project` writes only inside the session's working directory.
-- Results are capped at 1 MB, recordings at 60 s (or 600 frames), and screenshot zoom at 4. Each instance's control socket refuses request lines over 64 KB, whoever sends them.
+- Results are capped at 1 MB, recordings at 60 s (or 600 frames), and screenshot zoom at 4. Each instance's control socket refuses request lines over 64 KB, and requests nesting more than 16 arrays and objects deep, whoever sends them.
 - The instances it starts stop when the session ends, and with the server if it's killed.
 
 ## The plugin's binary

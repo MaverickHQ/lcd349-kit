@@ -136,10 +136,41 @@ void emu_control_exit_after_reply(rpc_client_t *c, int code)
     c->exit_after_reply = code;
 }
 
+bool emu_json_depth_ok(const char *s, size_t len, int max)
+{
+    int depth = 0;
+    bool in_string = false;
+    for (size_t i = 0; i < len; i++) {
+        char ch = s[i];
+        if (in_string) {
+            if (ch == '\\') {
+                i++; /* the escaped character */
+            } else if (ch == '"') {
+                in_string = false;
+            }
+        } else if (ch == '"') {
+            in_string = true;
+        } else if (ch == '[' || ch == '{') {
+            if (++depth > max) {
+                return false;
+            }
+        } else if (ch == ']' || ch == '}') {
+            depth--;
+        }
+    }
+    return true;
+}
+
 static void dispatch(rpc_client_t *c, const char *line, size_t len)
 {
     c->serial_prev = c->serial_cur;
     c->serial_cur = emu_serial_next();
+    if (!emu_json_depth_ok(line, len, RPC_MAX_DEPTH)) {
+        char msg[120];
+        snprintf(msg, sizeof msg, "invalid request: it nests more than %d arrays and objects deep", RPC_MAX_DEPTH);
+        reply_error(c, NULL, RPC_INVALID_REQUEST, msg);
+        return;
+    }
     cJSON *req = cJSON_ParseWithLength(line, len);
     if (!req) {
         reply_error(c, NULL, RPC_PARSE_ERROR, "parse error: the line isn't valid JSON");

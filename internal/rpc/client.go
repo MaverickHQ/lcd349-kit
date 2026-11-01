@@ -27,6 +27,38 @@ const (
 	CodeExited = -32001
 )
 
+// MaxDepth is the deepest a request may nest, arrays and objects, the
+// request object itself counting as one. An instance parses each request
+// recursively on its control task's small stack, so it refuses deeper ones
+// (RPC_MAX_DEPTH in components/lcd349/src/emu/control.h); Call refuses them
+// before sending.
+const MaxDepth = 16
+
+// maxReply caps a reply line. The largest replies, screenshots and trees,
+// are a few hundred kilobytes.
+var maxReply = 32 << 20
+
+// Depth returns how deeply the JSON text b nests arrays and objects:
+// 0 for a scalar, 1 for {} or []. Brackets inside strings don't count.
+func Depth(b []byte) int {
+	depth, deepest, inString := 0, 0, false
+	for i := 0; i < len(b); i++ {
+		switch ch := b[i]; {
+		case inString && ch == '\\':
+			i++
+		case ch == '"':
+			inString = !inString
+		case inString:
+		case ch == '[' || ch == '{':
+			depth++
+			deepest = max(deepest, depth)
+		case ch == ']' || ch == '}':
+			depth--
+		}
+	}
+	return deepest
+}
+
 // Error is a JSON-RPC error returned by the instance.
 type Error struct {
 	Code    int             `json:"code"`
@@ -93,6 +125,9 @@ func (c *Client) Call(ctx context.Context, method string, params, result any) er
 	if err != nil {
 		return err
 	}
+	if d := Depth(line); d > MaxDepth {
+		return fmt.Errorf("%s: the request nests %d arrays and objects deep; an instance takes at most %d", method, d, MaxDepth)
+	}
 	return c.roundTrip(ctx, append(line, '\n'), id, result)
 }
 
@@ -153,9 +188,20 @@ func (c *Client) read(ctx context.Context) (*response, error) {
 	if err := c.conn.SetReadDeadline(deadline); err != nil {
 		return nil, err
 	}
-	line, err := c.r.ReadBytes('\n')
-	if err != nil {
-		return nil, err
+	var line []byte
+	for {
+		chunk, err := c.r.ReadSlice('\n')
+		if len(line)+len(chunk) > maxReply {
+			return nil, fmt.Errorf("a reply over %d bytes", maxReply)
+		}
+		line = append(line, chunk...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		break
 	}
 	var resp response
 	if err := json.Unmarshal(line, &resp); err != nil {

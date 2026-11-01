@@ -209,10 +209,15 @@ func tail(e *Exit) string {
 	return out
 }
 
-// Stop stops the instance in dir and removes the directory. With a live
+// Stop stops the instance in dir and removes the directory; it refuses a
+// directory that isn't an instance directory in a verified root. With a live
 // supervisor it asks it to stop (SIGTERM); with a dead one it stops the
 // product only after the product itself confirms it belongs to dir.
 func Stop(dir string) error {
+	dir, err := inRoots(dir)
+	if err != nil {
+		return err
+	}
 	in, err := Read(dir)
 	if err != nil {
 		return os.RemoveAll(dir)

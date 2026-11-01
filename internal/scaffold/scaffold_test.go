@@ -93,3 +93,24 @@ func TestNameFrom(t *testing.T) {
 		}
 	}
 }
+
+// TestKitPathIsQuotedInYAML: a kit path with quotes, backslashes, a colon
+// or a newline in it reaches idf_component.yml as itself, not as YAML.
+func TestKitPathIsQuotedInYAML(t *testing.T) {
+	odd := filepath.Join(t.TempDir(), "kit \"q\" \\ #x: y\nz")
+	if err := os.MkdirAll(filepath.Join(odd, "include"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(odd, "include", "lcd349.h"), nil, 0o644)
+	dir := filepath.Join(t.TempDir(), "app")
+	if _, err := New(Options{Dir: dir, KitPath: odd}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := project.LoadKitProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Kit.OverridePath != odd {
+		t.Fatalf("override_path = %q, want %q", p.Kit.OverridePath, odd)
+	}
+}

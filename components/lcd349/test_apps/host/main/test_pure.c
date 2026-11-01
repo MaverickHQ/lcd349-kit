@@ -3,6 +3,7 @@
  */
 #include <string.h>
 
+#include "control.h"
 #include "debounce.h"
 #include "lcd349.h"
 #include "rotate.h"
@@ -290,6 +291,31 @@ static void test_err_str(void)
     TEST_ASSERT_EQUAL_STRING("LCD349_ERR_?", lcd349_err_str((lcd349_err_t)99));
 }
 
+/* ---- Request nesting (the control task parses requests recursively) ---- */
+
+static void test_json_depth(void)
+{
+    char deep[64], deeper[64];
+    memset(deep, 0, sizeof deep);
+    memset(deeper, 0, sizeof deeper);
+    for (int i = 0; i < 16; i++) {
+        deep[i] = '[';
+        deep[16 + i] = ']';
+    }
+    memcpy(deeper, "[", 1);
+    memcpy(deeper + 1, deep, 32);
+    deeper[33] = ']';
+    TEST_ASSERT_TRUE(emu_json_depth_ok(deep, strlen(deep), RPC_MAX_DEPTH));
+    TEST_ASSERT_FALSE(emu_json_depth_ok(deeper, strlen(deeper), RPC_MAX_DEPTH));
+    TEST_ASSERT_TRUE(emu_json_depth_ok("{}", 2, 1));
+    TEST_ASSERT_FALSE(emu_json_depth_ok("{\"a\":{}}", 8, 1));
+    /* Brackets in strings, escaped quotes included, don't count. */
+    const char *s = "{\"a\":\"[[{{\\\"]]\"}";
+    TEST_ASSERT_TRUE(emu_json_depth_ok(s, strlen(s), 1));
+    /* Only len bytes are read. */
+    TEST_ASSERT_TRUE(emu_json_depth_ok("[[", 1, 1));
+}
+
 void run_pure_tests(void)
 {
     RUN_TEST(test_classifier_short);
@@ -308,4 +334,5 @@ void run_pure_tests(void)
     RUN_TEST(test_battery_curve);
     RUN_TEST(test_err_str);
     RUN_TEST(test_cpp_api);
+    RUN_TEST(test_json_depth);
 }

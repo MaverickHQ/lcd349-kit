@@ -1,6 +1,6 @@
 {
   "name": "lcd349",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Design, build and test LVGL user interfaces for the Waveshare ESP32-S3-Touch-LCD-3.49 in an emulator that runs your product's own code, with a skill that knows the board's features and limits.",
   "author": {
     "name": "MaverickHQ"
