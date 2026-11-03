@@ -8,7 +8,7 @@ import (
 
 // Unsupported is one ESP-IDF component the emulator (the linux target)
 // lacks, how a build failure shows it, and the kit API that replaces it.
-// ESP-IDF v5.5.5 fails these three ways: the component doesn't resolve
+// ESP-IDF v5.5.6 fails these three ways: the component doesn't resolve
 // (esp_lcd, esp_wifi, esp_adc), its header is missing (driver/gpio.h), or
 // it compiles and its functions don't link (I2C, USB Serial/JTAG, sleep).
 type Unsupported struct {
@@ -104,7 +104,7 @@ func ComponentsDoc() string {
 	b.WriteString("The emulator builds your product for ESP-IDF's `linux` target, which lacks the board's hardware drivers. ")
 	b.WriteString("Products use the kit API for everything physical, so the same source builds for both targets. ")
 	b.WriteString("When a build uses one of these components, `lcd349 build` names the replacement.\n\n")
-	b.WriteString("In ESP-IDF v5.5.5 a missing component shows in one of three ways: it doesn't resolve (`Failed to resolve component`), ")
+	b.WriteString("In ESP-IDF v5.5.6 a missing component shows in one of three ways: it doesn't resolve (`Failed to resolve component`), ")
 	b.WriteString("its header is missing (`'driver/gpio.h' file not found`), or it compiles and its functions don't link (undefined symbols).\n\n")
 	b.WriteString("| Component | Headers | Use instead |\n|---|---|---|\n")
 	for _, u := range UnsupportedComponents {

@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +29,7 @@ import (
 // IDF is an ESP-IDF installation and the environment idf.py runs in.
 type IDF struct {
 	Path    string `json:"path"`    // IDF_PATH
-	Version string `json:"version"` // "v5.5.5", from tools/cmake/version.cmake
+	Version string `json:"version"` // "v5.5.6", from tools/cmake/version.cmake
 	Python  string `json:"python"`  // the ESP-IDF Python environment's interpreter
 	// Exports are the variables ESP-IDF's environment sets, as captured
 	// (PATH keeps a literal $PATH for this process's own); Env is the
@@ -40,7 +42,9 @@ type IDF struct {
 }
 
 // Candidates lists where ESP-IDF is looked for: $IDF_PATH, then the usual
-// install directories for the pinned version.
+// install directories for the pinned version and ~/esp/esp-idf, then other
+// installs of the pinned minor line (~/esp/v5.5.*/esp-idf, newest first),
+// which lcd349 doctor warns about, and last the espressif/idf container's.
 func Candidates() []string {
 	var c []string
 	if p := os.Getenv("IDF_PATH"); p != "" {
@@ -51,8 +55,47 @@ func Candidates() []string {
 			filepath.Join(home, "esp", lcd349kit.IDFVersion, "esp-idf"),
 			filepath.Join(home, "esp", "esp-idf-"+lcd349kit.IDFVersion),
 			filepath.Join(home, "esp", "esp-idf"))
+		c = append(c, sameMinorLine(filepath.Join(home, "esp"))...)
 	}
 	return append(c, "/opt/esp/idf") // the espressif/idf container
+}
+
+var pinRe = regexp.MustCompile(`^(v\d+\.\d+\.)(\d+)$`)
+
+// sameMinorLine returns <espDir>/vX.Y.P/esp-idf for each patch P of the
+// pinned version's minor line installed there, but the pinned patch itself,
+// newest first.
+func sameMinorLine(espDir string) []string {
+	pin := pinRe.FindStringSubmatch(lcd349kit.IDFVersion)
+	if pin == nil {
+		return nil
+	}
+	entries, err := os.ReadDir(espDir)
+	if err != nil {
+		return nil
+	}
+	type install struct {
+		patch int
+		path  string
+	}
+	var found []install
+	for _, e := range entries {
+		rest, ok := strings.CutPrefix(e.Name(), pin[1])
+		if !ok || rest == pin[2] {
+			continue
+		}
+		p, err := strconv.Atoi(rest)
+		if err != nil || strconv.Itoa(p) != rest {
+			continue // not a plain patch number: an -rc, or v5.50.x
+		}
+		found = append(found, install{p, filepath.Join(espDir, e.Name(), "esp-idf")})
+	}
+	sort.Slice(found, func(i, j int) bool { return found[i].patch > found[j].patch })
+	out := make([]string, len(found))
+	for i, f := range found {
+		out[i] = f.path
+	}
+	return out
 }
 
 // Find returns the first ESP-IDF among Candidates, without its environment.
@@ -270,13 +313,20 @@ func merge(base, over []string) []string {
 	return append(out, over...)
 }
 
+// cachePath is the environment cache's file for an ESP-IDF and the tools it
+// is exported against: IDF_TOOLS_PATH, or ESP-IDF's default ~/.espressif
+// when that's unset. Another tools directory exports another environment.
 func cachePath(idfPath string) string {
+	home, _ := os.UserHomeDir()
 	base := os.Getenv("XDG_CACHE_HOME")
 	if base == "" {
-		home, _ := os.UserHomeDir()
 		base = filepath.Join(home, ".cache")
 	}
-	h := sha256.Sum256([]byte(idfPath))
+	tools := os.Getenv("IDF_TOOLS_PATH")
+	if tools == "" {
+		tools = filepath.Join(home, ".espressif")
+	}
+	h := sha256.Sum256([]byte(idfPath + "\x00" + tools))
 	return filepath.Join(base, "lcd349", "idf-env-"+hex.EncodeToString(h[:6])+".json")
 }
 

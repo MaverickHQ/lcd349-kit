@@ -1,5 +1,5 @@
-# Toolchain pin (task 0.1, 2026-10-12). Change only with a new spike run.
-ESP_IDF=v5.5.5                 # git clone -b v5.5.5 --depth 1 --recursive --shallow-submodules; ./install.sh esp32s3
+# Toolchain pin (task 0.1, 2026-10-12; ESP-IDF v5.5.6 since 2026-11-02: CHANGELOG v0.2.2). Change only with a new spike run, or the gate and every build check on the new version.
+ESP_IDF=v5.5.6                 # git clone -b v5.5.6 --depth 1 --recursive --shallow-submodules; ./install.sh esp32s3
 ARDUINO_ESP32=3.3.12           # latest stable; built on IDF v5.5.5; manifest allows idf >=5.3,<6.2 (herdr-pager needs it)
 LVGL=9.6.0                     # lvgl/lvgl on the Espressif registry (MIT); builds unmodified for the linux target
 ESP_LCD_AXS15231B=2.1.1        # espressif/esp_lcd_axs15231b (Apache-2.0); idf >=5.3

@@ -6,7 +6,7 @@ lcd349-kit is licensed under Apache-2.0 (`LICENSE`). It uses the following third
 
 | Component | Version | Licence | Used for |
 |---|---|---|---|
-| ESP-IDF | v5.5.5 (see `VERSIONS`) | Apache-2.0 | Build system, FreeRTOS, drivers, the `linux` host target |
+| ESP-IDF | v5.5.6 (see `VERSIONS`) | Apache-2.0 | Build system, FreeRTOS, drivers, the `linux` host target |
 | `lvgl/lvgl` | 9.6.0 | MIT | UI library. Products use it directly. |
 | LVGL's bundled Montserrat fonts | with LVGL | OFL-1.1 (font), MIT (LVGL conversion) | Default fonts |
 

@@ -56,3 +56,37 @@ func TestRepoOwnerMatchesLauncher(t *testing.T) {
 		t.Fatalf("launcher owner %q, RepoURL %q", m, lcd349kit.RepoURL)
 	}
 }
+
+// TestContainersMatchIDFVersion: CI's ESP-IDF container, pinned by tag and
+// index digest, and the scenarios doc's CI example run the ESP-IDF the kit
+// is pinned to. Dependabot can't bump a workflow's container, so a VERSIONS
+// change that misses them fails here.
+func TestContainersMatchIDFVersion(t *testing.T) {
+	ci, err := os.ReadFile("../../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins := regexp.MustCompile(`(?m)^\s*container:\s*espressif/idf:(\S+?)@sha256:[0-9a-f]{64}\s*$`).FindAllSubmatch(ci, -1)
+	if len(pins) != 1 {
+		t.Fatalf("ci.yml: %d espressif/idf containers pinned by tag and digest, want 1", len(pins))
+	}
+	if tag := string(pins[0][1]); tag != lcd349kit.IDFVersion {
+		t.Errorf("ci.yml's container is espressif/idf:%s, IDFVersion is %s", tag, lcd349kit.IDFVersion)
+	}
+	if n := len(regexp.MustCompile(`espressif/idf:`).FindAll(ci, -1)); n != 1 {
+		t.Errorf("ci.yml names espressif/idf %d times, want once (pinned)", n)
+	}
+	doc, err := os.ReadFile("../../docs/scenarios.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags := regexp.MustCompile(`(?m)^\s*container:\s*espressif/idf:(\S+)\s*$`).FindAllSubmatch(doc, -1)
+	if len(tags) == 0 {
+		t.Fatal("docs/scenarios.md has no espressif/idf container")
+	}
+	for _, m := range tags {
+		if tag := string(m[1]); tag != lcd349kit.IDFVersion {
+			t.Errorf("docs/scenarios.md's container is espressif/idf:%s, IDFVersion is %s", tag, lcd349kit.IDFVersion)
+		}
+	}
+}

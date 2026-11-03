@@ -24,7 +24,7 @@ Scenarios run headless, so any CI that can build the emulator target can run the
 jobs:
   scenarios:
     runs-on: ubuntu-latest
-    container: espressif/idf:v5.5.5
+    container: espressif/idf:v5.5.6
     steps:
       - uses: actions/checkout@v4
       - run: apt-get update && apt-get install -y --no-install-recommends libbsd-dev curl
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           . $IDF_PATH/export.sh
-          V=0.2.1
+          V=0.2.2
           curl -fsSLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/lcd349_${V}_linux_amd64
           curl -fsSLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/SHA256SUMS
           sha256sum -c --ignore-missing SHA256SUMS

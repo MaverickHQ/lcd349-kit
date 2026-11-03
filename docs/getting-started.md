@@ -14,21 +14,21 @@ This page takes you from nothing to a product running in the emulator, checked b
 ## ESP-IDF
 
 ```
-mkdir -p ~/esp/v5.5.5 && cd ~/esp/v5.5.5
-git clone -b v5.5.5 --depth 1 --recursive --shallow-submodules https://github.com/espressif/esp-idf.git
+mkdir -p ~/esp/v5.5.6 && cd ~/esp/v5.5.6
+git clone -b v5.5.6 --depth 1 --recursive --shallow-submodules https://github.com/espressif/esp-idf.git
 cd esp-idf && ./install.sh esp32s3
 ```
 
 If the install fails with certificate errors (python.org's Python on macOS ships without CA certificates), run `export SSL_CERT_FILE=/etc/ssl/cert.pem` and try again.
 
-`lcd349` finds ESP-IDF by itself (`$IDF_PATH`, then `~/esp/v5.5.5/esp-idf`, `~/esp/esp-idf` and a few others) and sets up its environment, so you don't need `export.sh` for `lcd349` commands. You do for `idf.py`: `. ~/esp/v5.5.5/esp-idf/export.sh`.
+`lcd349` finds ESP-IDF by itself (`$IDF_PATH`, then `~/esp/v5.5.6/esp-idf`, `~/esp/esp-idf` and a few others; failing those, another v5.5 release at `~/esp/v5.5.*/esp-idf`, newest first, which `lcd349 doctor` warns about) and sets up its environment, so you don't need `export.sh` for `lcd349` commands. You do for `idf.py`: `. ~/esp/v5.5.6/esp-idf/export.sh`.
 
 ## The `lcd349` command
 
 From the release (macOS on Apple silicon shown; on Linux x86_64 use `linux_amd64`), checked against its `SHA256SUMS`:
 
 ```
-V=0.2.1; A=darwin_arm64
+V=0.2.2; A=darwin_arm64
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/lcd349_${V}_$A
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/SHA256SUMS
 shasum -a 256 -c --ignore-missing SHA256SUMS
@@ -99,7 +99,7 @@ A run that reaches a screenshot with no golden writes it and fails there: look a
 The board build is plain ESP-IDF, in `build/`; the emulator's `build-emu/` is separate, so the two never disturb each other:
 
 ```
-. ~/esp/v5.5.5/esp-idf/export.sh
+. ~/esp/v5.5.6/esp-idf/export.sh
 idf.py set-target esp32s3 build flash monitor
 ```
 
@@ -114,7 +114,7 @@ Every SDK call works on the board (revision V2). Light sleep is experimental the
      lcd349:
        git: https://github.com/MaverickHQ/lcd349-kit.git
        path: components/lcd349
-       version: v0.2.1
+       version: v0.2.2
    ```
 
    During development, use `override_path: /path/to/lcd349-kit/components/lcd349` instead.

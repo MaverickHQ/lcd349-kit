@@ -13,7 +13,7 @@
 # LCD349_DOWNLOAD_MAX_TIME its time limit in seconds (tests only).
 set -eu
 
-VERSION="0.2.1"
+VERSION="0.2.2"
 DEFAULT_BASE="https://github.com/MaverickHQ/lcd349-kit/releases/download/v$VERSION"
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)

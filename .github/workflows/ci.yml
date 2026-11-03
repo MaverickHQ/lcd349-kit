@@ -18,8 +18,8 @@ jobs:
     # GitHub's 6-hour default.
     timeout-minutes: ${{ (matrix.check == 'go' || matrix.check == 'build-esp32s3') && 45 || 30 }}
     # Keep in step with VERSIONS (ESP_IDF). The digest goes with the tag: it's
-    # Docker Hub's index digest for v5.5.5 (Ubuntu 24.04), so change both.
-    container: espressif/idf:v5.5.5@sha256:a9231d0697ab8f7517cc072e93b7c83e04907bfbfba80b6440d7dbbf90665cf2
+    # Docker Hub's index digest for v5.5.6 (Ubuntu 24.04), so change both.
+    container: espressif/idf:v5.5.6@sha256:bf72fe7a15c22849a9a94147301165a545fb8905d97c176cf748e3e4614cac84
     env:
       # Ubuntu's snapshot of its archive on this date: apt installs exactly the
       # versions below for good (requirement 1.6).

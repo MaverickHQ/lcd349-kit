@@ -12,7 +12,7 @@ In Claude Code 2.1.275 or later:
 
 On older versions: `/plugin marketplace add MaverickHQ/lcd349-kit`, then `/plugin install lcd349@lcd349-kit`. From a shell: `claude plugin install lcd349 --marketplace MaverickHQ/lcd349-kit`. You also need ESP-IDF (see [getting started](getting-started.md)); `lcd349 doctor` checks it.
 
-The plugin runs the `lcd349` release binary for macOS on Apple silicon or Linux on x86_64, and downloads it the first time ([how](#how-the-plugin-finds-lcd349)). **Intel Macs and Linux on arm64 have no release binary:** build `lcd349` from a checkout of the plugin's version (its tag, such as `v0.2.1`) and put it on PATH, and the plugin uses that instead:
+The plugin runs the `lcd349` release binary for macOS on Apple silicon or Linux on x86_64, and downloads it the first time ([how](#how-the-plugin-finds-lcd349)). **Intel Macs and Linux on arm64 have no release binary:** build `lcd349` from a checkout of the plugin's version (its tag, such as `v0.2.2`) and put it on PATH, and the plugin uses that instead:
 
 ```
 go build -o ~/bin/lcd349 ./cmd/lcd349

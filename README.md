@@ -119,7 +119,7 @@ Things to ask it:
 
 | For | You need |
 |---|---|
-| Everything | [ESP-IDF](docs/getting-started.md#esp-idf) v5.5.5 (every build uses its `linux` target); on Linux, `libbsd-dev` |
+| Everything | [ESP-IDF](docs/getting-started.md#esp-idf) v5.5.6 (every build uses its `linux` target); on Linux, `libbsd-dev` |
 | The window | CMake, Ninja, SDL2 and pkg-config |
 | Building `lcd349` from source | Go |
 | The plugin's download | `curl`, and `shasum` or `sha256sum` |
@@ -131,7 +131,7 @@ Things to ask it:
 Install `lcd349` from the release (macOS on Apple Silicon shown; on Linux x86_64 use `linux_amd64`):
 
 ```
-V=0.2.1; A=darwin_arm64
+V=0.2.2; A=darwin_arm64
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/lcd349_${V}_$A
 curl -fLO https://github.com/MaverickHQ/lcd349-kit/releases/download/v$V/SHA256SUMS
 shasum -a 256 -c --ignore-missing SHA256SUMS

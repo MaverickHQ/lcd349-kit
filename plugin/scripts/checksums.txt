@@ -3,5 +3,5 @@
 # with the new version, and go in the commit that is tagged; the tag's run
 # publishes only if its binaries match them. Until then the plugin has no
 # entries, and the launcher needs lcd349 on PATH.
-00974854657143e4655c7877bad53c57c7c806292732e5209c95aefb6d2d33ce  lcd349_0.2.1_darwin_arm64
-ed5b2498500fb69c7dc30a62d4d694ed2073a3a467113491c85e7086113876b5  lcd349_0.2.1_linux_amd64
+c74a91d7cc052e13c52a2610ea7dcf88817767d8560661147c1cefe7d84b7246  lcd349_0.2.2_darwin_arm64
+bc0ffbe9dd0ecfc74baa1d90dab1ac647dde430f900910259222d6345e0940b6  lcd349_0.2.2_linux_amd64

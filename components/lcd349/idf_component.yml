@@ -1,4 +1,4 @@
-version: "0.2.1"
+version: "0.2.2"
 description: "Board SDK for the Waveshare ESP32-S3-Touch-LCD-3.49, with an emulator backend for ESP-IDF's linux target"
 license: "Apache-2.0"
 targets:

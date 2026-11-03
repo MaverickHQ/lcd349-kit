@@ -26,8 +26,8 @@ extern "C" {
 
 #define LCD349_VERSION_MAJOR 0
 #define LCD349_VERSION_MINOR 2
-#define LCD349_VERSION_PATCH 1
-#define LCD349_VERSION_STR "0.2.1"
+#define LCD349_VERSION_PATCH 2
+#define LCD349_VERSION_STR "0.2.2"
 
 typedef enum {
     LCD349_OK = 0,

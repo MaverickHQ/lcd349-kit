@@ -6,7 +6,7 @@ import "embed"
 
 // Version is the kit version. It equals LCD349_VERSION_STR in
 // components/lcd349/include/lcd349_core.h (internal/repocheck checks).
-const Version = "0.2.1"
+const Version = "0.2.2"
 
 // RepoURL is the kit's repository, which `lcd349 new` pins. It must match
 // plugin/scripts/lcd349-launch (internal/repocheck checks).
@@ -14,7 +14,7 @@ const RepoURL = "https://github.com/MaverickHQ/lcd349-kit.git"
 
 // IDFVersion is the ESP-IDF release the kit is pinned to (ESP_IDF in
 // VERSIONS; internal/repocheck checks).
-const IDFVersion = "v5.5.5"
+const IDFVersion = "v5.5.6"
 
 // ViewerSource is the viewer's source tree (viewer/), which lcd349 builds into
 // its cache when no lcd349-view binary ships beside it (design §Instances).

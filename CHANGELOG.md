@@ -2,6 +2,21 @@
 
 All notable changes to lcd349-kit are listed here. The SDK follows semantic versioning. Before 1.0, a breaking change to a public header bumps the minor version and is listed under **Breaking** (requirement 1.8).
 
+## v0.2.2 (2026-11-02)
+
+The kit moves to ESP-IDF v5.5.6 for the security fixes it carries. No public header changed but the version macros, so nothing breaks.
+
+### Changed
+- **ESP-IDF v5.5.6** (released 2026-10-16), not v5.5.5: in `VERSIONS`, where `lcd349` looks for ESP-IDF and what `lcd349 doctor` checks, the docs, and CI's container (`espressif/idf:v5.5.6`, pinned by its index digest; still Ubuntu 24.04, so the apt snapshot and versions stand). It brings fixes for:
+  - **mbedTLS 3.6.7** (from 3.6.6) and the 19 advisories of [its release](https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.7), among them a remote buffer overflow in the TLS 1.2 ECDHE-PSK client handshake (CVE-2026-50580), X.509 CA-bit forgery through a malformed basicConstraints extension (CVE-2026-49300), a buffer overflow in `mbedtls_ecdh_calc_secret()` (CVE-2026-35336) and a timing side channel in RSA PKCS#1 v1.5 decryption (CVE-2026-50587);
+  - **lwIP's DNS cache** ([GHSA-ch63-jxm5-vmvf](https://github.com/espressif/esp-idf/security/advisories/GHSA-ch63-jxm5-vmvf), CVE-2026-113783): a stack buffer overflow on a cached lookup of a host with several addresses, when `CONFIG_LWIP_DNS_MAX_HOST_IP` is above 1 (ESP-IDF's default, and the kit's, is 1);
+  - **wpa_supplicant:** [w1.fi 2026-2](https://w1.fi/security/2026-2/), missing network-context validation for PMKSA caching, and [2026-3](https://w1.fi/security/2026-3/), unexpected SAE commit message contents terminating wpa_supplicant.
+
+  On the board, the kit's Wi-Fi links wpa_supplicant and, through it, mbedTLS's crypto (`CONFIG_ESP_WIFI_MBEDTLS_CRYPTO`, on by default). The TLS, X.509 and PKCS7 advisories and lwIP's DNS cache matter only with a product's own TLS and name lookups.
+- **What you do:** install ESP-IDF v5.5.6 as [getting started](docs/getting-started.md#esp-idf) shows (it can sit beside v5.5.5), and use it: `lcd349` looks in `$IDF_PATH` first, then `~/esp/v5.5.6/esp-idf`, so source v5.5.6's `export.sh` or unset `IDF_PATH`. Until you do, `lcd349` builds with the ESP-IDF it finds instead (`$IDF_PATH`, or another v5.5 release at `~/esp/v5.5.*/esp-idf`, newest first), and `lcd349 doctor` warns that the kit is pinned to v5.5.6 and tested only with it. Remove each project's `build/` and `build-emu/` before its first build on v5.5.6: a build directory configured by another ESP-IDF can keep building with it, or stops with `Run 'idf.py fullclean' to start again` when that ESP-IDF's Python differs. The next build records ESP-IDF 5.5.6 in the project's `dependencies.lock.<target>` files; commit them.
+- `lcd349` caches ESP-IDF's environment per ESP-IDF and `IDF_TOOLS_PATH` (or its default, `~/.espressif`), not per ESP-IDF alone, so an environment exported against one tools directory isn't reused with another. The first command after the update exports it again.
+- The version strings say `0.2.2`. `plugin/scripts/checksums.txt` has no `lcd349` lines until the release's dry run gives them.
+
 ## v0.2.1 (2026-11-01)
 
 Fixes from a security review of v0.2.0. No public header changed but the version macros, so nothing breaks.

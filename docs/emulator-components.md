@@ -4,7 +4,7 @@
 
 The emulator builds your product for ESP-IDF's `linux` target, which lacks the board's hardware drivers. Products use the kit API for everything physical, so the same source builds for both targets. When a build uses one of these components, `lcd349 build` names the replacement.
 
-In ESP-IDF v5.5.5 a missing component shows in one of three ways: it doesn't resolve (`Failed to resolve component`), its header is missing (`'driver/gpio.h' file not found`), or it compiles and its functions don't link (undefined symbols).
+In ESP-IDF v5.5.6 a missing component shows in one of three ways: it doesn't resolve (`Failed to resolve component`), its header is missing (`'driver/gpio.h' file not found`), or it compiles and its functions don't link (undefined symbols).
 
 | Component | Headers | Use instead |
 |---|---|---|
